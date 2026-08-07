@@ -1,0 +1,1340 @@
+DEFAULT_LEXICAL_STATE=KOTLIN;
+
+DEACTIVATE_TOKENS = SHEBANG;
+TAB_SIZE=4;
+ENSURE_FINAL_EOL;
+PARSER_PACKAGE=org.parsers.kotlin;
+LEXER_USES_PARSER;
+
+INCLUDE "KotlinLexer.ccc"
+
+KotlinFile :
+  ACTIVATE_TOKENS SHEBANG [<SHEBANG>]
+  NLs
+  (FileAnnotation)*
+  [PackageDeclaration]
+  (ImportDeclaration)*
+  (SCAN ~(<EOF>) => TopLevelObject)*
+  <EOF>
+;
+
+TopLevelObject : Declaration [Semis] ;
+
+DottedName : <IDENTIFIER> ("." <IDENTIFIER> =>||)* ;
+
+NLs#void : (<NL> {popNode();})* ;
+
+FileAnnotation :
+   "@"
+   ENSURE {!Character.isWhitespace(token_source.charAt(getToken(0).getEndOffset()))}
+   'file'
+   =>||
+   NLs ":" NLs
+    (
+        "[" (UnescapedAnnotation)+ "]"
+        |
+        UnescapedAnnotation
+    )
+    NLs
+;
+
+PackageDeclaration : "package" DottedName Semis ;
+
+ImportDeclaration :
+    'import'
+    DottedName
+    [
+        "." "*"
+        |
+        "as" <IDENTIFIER>
+    ]
+    [Semis]
+;
+
+UnescapedAnnotation :
+    UserType
+    [
+      // Somewhat kludgy. REVISIT
+      ENSURE (ValueArguments ENSURE ~("->"))
+      ValueArguments #ConstructorInvocation(2)
+    ]
+;
+
+ConstructorInvocation : UserType NLs =>|+1 ValueArguments;
+
+UserType :
+    SimpleUserType
+    (
+// The following cases are really a bit kludgy. REVISIT
+      ENSURE \...\TypeArguments
+      NLs "." NLs =>|+1 SimpleUserType
+      |
+      ENSURE ~\...\ReceiverType
+      NLs "." NLs =>|+1 SimpleUserType
+      |
+      ENSURE \...\ReceiverType
+      NLs "." NLs SimpleUserType ENSURE (("?")* ".") =>||
+    )*
+;
+
+SimpleUserType : <IDENTIFIER> [NLs =>|+1 TypeArguments] ;
+
+ValueArguments :
+   "("
+   NLs
+   [
+      ValueArgument
+      (NLs "," NLs =>|+1 ValueArgument)* [NLs "," =>||]
+      NLs
+   ]
+   ")"
+;
+
+ValueArgument :
+   [Annotation]
+   NLs
+   [<IDENTIFIER> NLs "=" =>|| NLs]
+   ["*"]
+   NLs
+   Expression
+;
+
+TypeArguments :
+   "<"
+   NLs
+   TypeProjection
+   (NLs "," =>|+1 NLs TypeProjection)*
+   [NLs "," =>||]
+   NLs
+   ">"
+;
+
+TypeProjection :
+    "*"
+    |
+    TypeProjectionModifiers Type
+;
+
+TypeProjectionModifiers :
+   ("in" NLs | 'out' NLs | Annotation)*
+;
+
+Annotation :
+   (
+    AnnotationUseSiteTarget
+    |
+    "@"
+    ENSURE {!Character.isWhitespace(token_source.charAt(getToken(0).getEndOffset()))} =>||
+   )
+   (
+      UnescapedAnnotation
+      |
+      "[" (UnescapedAnnotation)+ "]"
+   )
+   NLs
+;
+
+AnnotationUseSiteTarget :
+    "@"
+    ENSURE {!Character.isWhitespace(token_source.charAt(getToken(0).getEndOffset()))}
+    ('field' | 'property' | 'get' | 'set' | 'receiver' | 'param' | 'setparam' | 'delegate')
+    =>||
+    ":"
+;
+
+Type :
+   [TypeModifiers]
+   (
+     FunctionType
+     |
+     DefinitelyNonNullableType
+     |
+     NullableType
+   )
+;
+
+TypeModifiers :
+   ('suspend' | Annotation)+
+;
+
+ParenthesizedType : "(" NLs Type NLs ")" ;
+
+FunctionType :
+   [ReceiverType NLs "." =>|| NLs]
+   FunctionTypeParameters
+   NLs
+   "->" =>||
+   NLs
+   Type
+;
+
+ReceiverType# :
+   [TypeModifiers]
+   NullableType
+;
+
+NullableType :
+   (TypeReference | ParenthesizedType)
+   NLs
+   ("?")*
+;
+
+TypeReference : 'dynamic' | UserType ;
+
+DefinitelyNonNullableType :
+   [TypeModifiers]
+   (UserType | ParenthesizedUserType)
+   NLs
+   "&" =>||
+   NLs
+   [TypeModifiers]
+   (UserType | ParenthesizedUserType)
+;
+
+ParenthesizedUserType :
+    "("
+    //NLs
+    (UserType | ParenthesizedUserType)
+    //NLs
+    ")"
+;
+
+FunctionTypeParameters :
+    "("
+    NLs
+    [Parameter|Type]
+    (NLs "," NLs =>|+1 (Parameter | Type))*
+    [NLs "," =>||]
+    NLs
+    ")"
+;
+
+Parameter : <IDENTIFIER> NLs ":" =>|| NLs [ContextParameters] Type ;
+
+ContextParameters :
+  'context'
+  "("
+      [<IDENTIFIER> NLs ":" NLs =>||] Type
+      ("," [<IDENTIFIER> NLs ":" NLs =>||] Type)*
+  ")"
+;
+
+#Expression#interface :
+   Disjunction
+   {return (Expression) peekNode();}
+;
+
+INJECT Expression :
+{
+   default boolean canBeAssignedTo() {
+      return false;
+   }
+}
+
+INJECT Disjunction : implements Expression
+INJECT Conjunction : implements Expression
+INJECT Equality : implements Expression
+INJECT Comparison : implements Expression
+INJECT GenericCallLikeComparison : implements Expression
+INJECT InfixOperation : implements Expression
+INJECT ElvisExpression : implements Expression
+INJECT InfixFunctionCall : implements Expression
+INJECT ElvisExpression : implements Expression
+INJECT AdditiveExpression : implements Expression
+INJECT MultiplicativeExpression : implements Expression
+INJECT AsExpression : implements Expression
+INJECT PrefixUnaryExpression : implements Expression
+INJECT RangeExpression : implements Expression
+INJECT CallExpression : implements Expression
+
+INJECT ParenthesizedExpression : implements Expression {
+   public boolean canBeAssignedTo() {
+      return ((Expression) get(1)).canBeAssignedTo();
+   }
+}
+
+INJECT PostfixUnaryExpression : implements Expression {
+   public boolean canBeAssignedTo() {
+      return getLastChild().getType() == EXCLAM;
+   }
+}
+
+INJECT NavigationExpression : implements Expression
+{
+   public boolean canBeAssignedTo() {
+      return getLastChild().getType() != CLASS;
+   }
+}
+
+INJECT IndexExpression : implements Expression
+{
+   public boolean canBeAssignedTo() {
+      return true;
+   }
+}
+
+INJECT PrimaryExpression : extends Expression
+INJECT IfExpression : implements PrimaryExpression
+INJECT ReturnExpression : implements PrimaryExpression
+INJECT ThrowExpression : implements PrimaryExpression
+INJECT TryExpression : implements PrimaryExpression
+INJECT WhenExpression : implements PrimaryExpression
+INJECT ObjectLiteral : implements PrimaryExpression
+INJECT ContinueExpression : implements PrimaryExpression
+INJECT BreakExpression : implements PrimaryExpression
+INJECT CallableReference : implements PrimaryExpression
+INJECT LambdaLiteral : implements PrimaryExpression
+INJECT CollectionLiteral : implements PrimaryExpression
+INJECT AnonymousFunction : implements PrimaryExpression
+INJECT ThisExpression : implements PrimaryExpression
+
+Disjunction : Conjunction (NLs "||" =>|| NLs Conjunction)* ;
+
+Conjunction : Equality (NLs "&&" =>|| NLs Equality)* ;
+
+Equality : Comparison (EqualityOperator NLs Comparison)* ;
+
+Comparison :
+    GenericCallLikeComparison
+    (ComparisonOperator NLs GenericCallLikeComparison)*
+;
+
+GenericCallLikeComparison :
+    InfixOperation
+    (
+      ENSURE ("{")
+      ENSURE {!isInExplicitDelegateAndNotParenthesized()}
+      CallSuffix
+      |
+      ENSURE ("(")
+      CallSuffix
+    )*
+;
+
+InfixOperation :
+   ElvisExpression
+   (
+      ENSURE {getTokenType(0) != NL}
+      (
+        InOperator NLs ElvisExpression
+        |
+        IsOperator NLs Type
+      )
+   )*
+;
+
+ElvisExpression :
+    InfixFunctionCall
+    (NLs "?:" =>|| NLs InfixFunctionCall)*
+;
+
+InfixFunctionCall :
+    RangeExpression
+    (
+      ENSURE {
+         peekNode() != null
+         && peekNode().getEndLine() == getToken(1).getBeginLine()
+         |
+         canIgnoreNewlines()
+      }
+      <IDENTIFIER>
+      NLs
+      RangeExpression
+   )*
+;
+
+RangeExpression : AdditiveExpression ((".." | "..<") NLs AdditiveExpression)* ;
+
+AdditiveExpression : MultiplicativeExpression (("+"|"-") NLs MultiplicativeExpression)* ;
+
+MultiplicativeExpression : AsExpression (("*"|"/"|"%") NLs AsExpression)* ;
+
+AsExpression : PrefixUnaryExpression (NLs ("as"|"as?") =>|| NLs Type)* ;
+
+PrefixUnaryExpression :
+    (ENSURE {getTokenType(1) != IDENTIFIER || getTokenType(2) == AT} UnaryPrefix)*
+    PostfixUnaryExpression
+;
+
+UnaryPrefix#void : Label | Annotation | PrefixUnaryOperator NLs ;
+
+PrefixUnaryOperator#void : "++" | "--" | "-" | "+" | "!" ;
+
+PostfixUnaryExpression : PrimaryExpression (PostfixUnarySuffix)* ;
+
+EqualityOperator#void : "!=" | "!==" | "==" | "===" ;
+
+ComparisonOperator#void : "<" | "<=" | ">=" | ">" ;
+
+InOperator#void : "in" | "!in" ;
+
+IsOperator#void : "is" | "!is";
+
+Label :
+   <IDENTIFIER>
+   ENSURE { !Character.isWhitespace(getToken(1).charAt(-1)) }
+   "@" =>||
+   NLs
+;
+
+PostfixUnarySuffixLA#scan :
+   "++" | "--" | "!"|"["|"::" | "("
+   |
+   NLs "." =>||
+   |
+   NLs "?" "."
+   ENSURE {getToken(-1).getEndOffset() == getToken(0).getBeginOffset()}
+   |
+   ENSURE {!isInExplicitDelegateAndNotParenthesized()}
+   [Label]
+   "{"
+   |
+   //REVISIT
+   TypeArguments
+;
+
+PostfixUnarySuffix#void :
+  SCAN PostfixUnarySuffixLA =>
+  (
+    PostfixUnaryOperator #PostfixUnaryExpression(2)
+    |
+    (NavigationSuffix) #NavigationExpression(+1)
+    |
+    (CallSuffix) #CallExpression(+1)
+    |
+    TypeArguments #ExpressionWithTypeArgumnents(2)
+    |
+    (IndexingSuffix) #IndexExpression(+1)
+  )
+;
+
+PostfixUnaryOperator#void : "++" | "--" | "!" ;
+
+NavigationSuffix#void :
+    NLs
+    MemberAccessOperator
+    NLs =>||
+    (<IDENTIFIER> | ParenthesizedExpression | "class")
+;
+
+IndexingSuffix#void :
+    "["
+    NLs
+    Expression
+    (NLs "," NLs =>|+1 Expression)*
+    [NLs "," =>||]
+    NLs
+    "]"
+;
+
+CallSuffix#void :
+    [TypeArguments]
+    ENSURE ("(" | (Annotation)* [Label=>||] "{" )
+    =>||
+    (
+        ValueArguments
+        [
+           ENSURE {!isInExplicitDelegateAndNotParenthesized()}
+           AnnotatedLambda
+        ]
+        |
+        ENSURE {!isInExplicitDelegateAndNotParenthesized()}
+        AnnotatedLambda
+    )
+;
+
+MemberAccessOperator :
+   (
+      "."
+      |
+      "::"
+      |
+      "?" "."
+   )
+;
+
+AnnotatedLambda : (Annotation)* [Label] NLs =>|+1 LambdaLiteral ;
+
+LambdaLiteral :
+    "{"
+    NLs
+    [
+        [LambdaParameters]
+        NLs
+        "->"
+        =>||
+        NLs
+    ]
+    (
+       SCAN ~([Semis] "}") =>
+       [Semis]
+       Statement
+    )*
+    [Semis]
+    "}"
+;
+
+LambdaParameters :
+   LambdaParameter (NLs "," =>|+1 NLs LambdaParameter)* [NLs "," =>||]
+;
+
+LambdaParameter :
+   MultiVariableDeclaration [NLs ":" =>|| NLs Type]
+   |
+   VariableDeclaration
+   |
+   "_" [NLs ":" =>|| NLs Type]
+;
+
+VariableDeclaration : (Annotation)* NLs <IDENTIFIER> [NLs ":" =>|| NLs Type] ;
+
+MultiVariableDeclaration :
+    "("
+    NLs
+    (
+      "_" [NLs ":" =>|| NLs Type]
+      |
+      VariableDeclaration
+    )
+    (
+      NLs
+      ","
+      NLs =>|+1
+      (
+         "_" [NLs ":" =>|| NLs Type]
+         |
+         VariableDeclaration
+      )
+    )*
+    [NLs "," =>||]
+    NLs
+    ")"
+;
+
+DestructuringVariableDeclaration :
+    "["
+    NLs
+    DestructuringEntry
+    (NLs "," NLs =>|+1 DestructuringEntry)*
+    [NLs "," =>||]
+    NLs
+    "]"
+;
+
+DestructuringEntry : "_" | <IDENTIFIER> NLs [":" NLs Type] ;
+
+Semis :
+   (";" | <NL>)+
+;
+
+Semi :
+   (";"|<NL>)
+   NLs
+;
+
+Statement :
+   (Label|Annotation)*
+   (
+    ForStatement
+    |
+    WhileStatement
+    |
+    DoWhileStatement
+    |
+    FunctionDeclaration
+    |
+    Assignment
+    |
+    Declaration
+   )
+;
+
+ForStatement :
+   "for"
+   NLs
+   "("
+   (Annotation)*
+   (
+      MultiVariableDeclaration
+      |
+      DestructuringVariableDeclaration
+      |
+      VariableDeclaration
+   )
+   "in"
+   Expression
+   NLs
+   ")"
+   NLs
+   [ControlStructureBody]
+;
+
+WhileStatement :
+    "while"
+    NLs
+    "("
+    NLs
+    Expression
+    NLs
+    ")"
+    NLs
+    (ControlStructureBody | ";")
+;
+
+DoWhileStatement :
+   "do"
+   NLs
+   [ControlStructureBody]
+   NLs
+   "while"
+   NLs
+   "("
+   Expression
+   ")"
+;
+
+ControlStructureBody#void :
+    ENSURE ~(LambdaLiteral)
+    Block
+    |
+    Statement
+;
+
+Block :
+   "{"
+     (
+       SCAN ~([Semis] "}") =>
+       [Semis]
+       Statement
+     )*
+   [Semis]
+   "}"
+;
+
+Declaration :
+    TypeAlias
+    |
+    ClassDeclaration
+    |
+    ObjectDeclaration
+    |
+    FunctionDeclaration
+    |
+    PropertyDeclaration
+;
+
+ClassDeclaration :
+   {boolean isEnum = false;}
+   [Modifiers {isEnum = peekNode().firstChildOfType(TokenType.ENUM)!= null;}]
+   (
+      "class"
+      |
+      ["fun"] "interface" =>||
+   )
+   =>||
+   NLs
+   <IDENTIFIER>
+   [NLs =>|+1 TypeParameters]
+   [
+      NLs
+      ENSURE
+      (
+         [[Modifiers] 'constructor' NLs] "("
+      )
+      =>||
+      PrimaryConstructor
+   ]
+   [NLs ":" =>|| DelegationSpecifiers]
+   [NLs =>|+1 TypeConstraints]
+   [
+      SCAN (NLs "{") =>
+      (
+         SCAN 0 {isEnum} => NLs EnumClassBody
+         |
+         SCAN 0 NLs ClassBody
+      )
+   ]
+;
+
+ObjectDeclaration :
+    [Modifiers]
+    "object"
+    NLs
+    <IDENTIFIER> =>||
+    [NLs ":" =>|| NLs DelegationSpecifiers]
+    [NLs =>|+1 ClassBody]
+;
+
+FunctionDeclaration :
+   [ContextParameters NLs] // Very bleeding edge
+   [Modifiers]
+   "fun" // =>||
+   [NLs =>|+1 TypeParameters]
+   [NLs ReceiverType NLs "." =>||]
+   NLs
+   <IDENTIFIER>
+   =>||
+   NLs
+   FunctionValueParameters
+   [NLs ":" =>|| NLs Type]
+   [NLs =>|+1 TypeConstraints]
+   [NLs =>|+1 FunctionBody]
+;
+
+FunctionBody : Block | "=" NLs Expression ;
+
+Modifiers# :
+   ENSURE ~(Modifier ":")
+   (
+      ENSURE ~\EnumEntry
+      Modifier
+      |
+      Annotation
+   )+
+;
+
+Modifier#void :
+   'sealed' | 'annotation' | 'data' | 'inner' | 'value' |
+   'override' | 'lateinit' | 'public' | 'private' | 'internal' | 'protected' |
+   'tailrec' | 'operator' | 'infix' | 'inline' | 'external' | 'suspend' |
+   'const' | 'abstract' | 'final' | 'open' | 'vararg' | 'noinline' | 'crossinline' |
+   'expect' | 'actual' | 'enum'
+;
+
+TypeAlias :
+   [Modifiers] "typealias" =>||
+   NLs
+   <IDENTIFIER>
+   [NLs =>|+1 TypeParameters]
+   NLs
+   "="
+   NLs
+   Type
+;
+
+PrimaryConstructor : [[Modifiers] 'constructor' NLs] ClassParameters ;
+
+ClassParameters :
+    "("
+    NLs
+    [
+        ClassParameter
+        (NLs "," NLs =>|+1 ClassParameter)* [NLs "," =>||]
+    ]
+    NLs
+    ")"
+;
+
+ClassParameter :
+   [Modifiers]
+   ["val"|"var"]
+   NLs
+   <IDENTIFIER>
+   ":"
+   NLs
+   Type
+   [NLs "=" =>|| NLs Expression]
+;
+
+PropertyDeclaration :
+  [Modifiers]
+  ("val"|"var")
+  =>||
+  [NLs =>|+1 TypeParameters]
+  [NLs ReceiverType NLs "." =>||]
+  (NLs (MultiVariableDeclaration | VariableDeclaration |"_"))
+  [NLs =>|+1 TypeConstraints]
+  [
+   NLs =>|+1
+   (
+    "=" NLs Expression
+    |
+    PropertyDelegate
+   )
+  ]
+  [
+     NLs
+     ENSURE ([";"] [Modifiers] (Getter|Setter) ENSURE ~(MemberAccessOperator))
+     =>||
+     (
+        Getter [NLs [Semi] ENSURE ([Modifiers] 'set') =>|| Setter]
+        |
+        Setter [NLs [Semi] ENSURE ([Modifiers] 'get') =>|| Getter]
+        |
+        Semi (Getter|Setter)
+     )
+  ]
+;
+
+Getter :
+   [Modifiers]
+   'get'
+   =>||
+   [
+      NLs
+      "(" =>||
+      NLs
+      ")"
+      [NLs ":" =>|| NLs Type]
+      NLs
+      FunctionBody
+   ]
+;
+
+// A separate #scan that checks that either we have a
+// simple (no params) setter or a setter with exactly one
+// parameter
+SetterLA#scan :
+   [Modifiers]
+   'set' ENSURE ~(NLs "(") =>||
+   |
+   [Modifiers]
+   'set'
+   NLs
+   "("
+   NLs
+   (
+      "_"
+      |
+      FunctionValueParameterWithOptionalType [NLs "," =>||]
+   )
+   NLs
+   ")"
+   NLs
+   ("{" | "=")
+;
+
+Setter :
+   SCAN SetterLA =>
+   [Modifiers]
+   'set'
+   [
+      NLs
+      "(" =>||
+      NLs
+      (
+         "_"
+         |
+         FunctionValueParameterWithOptionalType [NLs "," =>||]
+      )
+      NLs
+      ")"
+      [NLs ":" =>|| NLs Type]
+      NLs
+      FunctionBody
+   ]
+;
+
+TypeParameters :
+   "<"
+   NLs
+   TypeParameter
+   (NLs "," NLs =>|+1 TypeParameter)* [NLs "," =>||]
+   NLs
+   ">"
+;
+
+TypeParameter :
+   TypeParameterModifiers
+   NLs
+   <IDENTIFIER>
+   [NLs ":" =>|| NLs Type]
+;
+
+TypeConstraints : 'where' NLs TypeConstraint (NLs "," =>|| NLs TypeConstraint)* ;
+
+TypeConstraint : (Annotation)* <IDENTIFIER> NLs ":" NLs Type ;
+
+TypeParameterModifiers# : ('reified' | "in" | 'out' | Annotation)* ;
+
+ClassBody : "{" NLs ClassMemberDeclarations NLs "}" ;
+
+// TODO: Disambiguate this from a ClassBody?
+EnumClassBody :
+    "{"
+    NLs
+    [EnumEntries]
+    [NLs ";" =>|| NLs ClassMemberDeclarations]
+    NLs
+    "}"
+;
+
+Assignment :
+    {
+      Expression lhs;
+      boolean isSimpleAssign = false;
+    }
+    lhs=Expression
+    [
+       AssignmentOperator {isSimpleAssign = getTokenType(0) == ASSIGN;}
+       NLs
+       Expression
+       ASSERT {!isSimpleAssign || lhs.canBeAssignedTo(),
+               lhs :
+               "Expression " + lhs
+               + " of type " + lhs.getClass().getSimpleName()
+               + "\nat " + lhs.getLocation()
+               + "\ncannot be assigned to."
+       }
+    ]
+;
+
+AssignmentOperator#void : "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
+
+DelegationSpecifiers :
+    AnnotatedDelegationSpecifier
+    (NLs "," =>|| NLs AnnotatedDelegationSpecifier)*
+;
+
+AnnotatedDelegationSpecifier : (Annotation)* NLs DelegationSpecifier ;
+
+DelegationSpecifier :
+   ConstructorInvocation
+   |
+   ExplicitDelegation
+   |
+   UserType
+   |
+   FunctionType
+   |
+   'suspend' NLs FunctionType
+;
+
+PropertyDelegate : 'by' NLs Expression ;
+
+ExplicitDelegation :
+   (UserType | FunctionType)
+   NLs
+   'by' =>||
+   NLs
+   Expression
+;
+
+INJECT PARSER_CLASS : {
+    private boolean isInExplicitDelegateAndNotParenthesized() {
+        ListIterator<NonTerminalCall> it = stackIteratorBackward();
+        while (it.hasNext()) {
+            // NB. These strings are interned so we can just
+            // use identity comparison.
+            String caller = it.next().productionName;
+            if (caller == "ExplicitDelegation")
+            {
+               return true;
+            }
+            if (caller == "ParentheticalExpression"
+                || caller == "ValueArguments")
+            {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private Iterator<String> stackIteratorIncludingCurrent() {
+         final Iterator<NonTerminalCall> nestedStack = stackIteratorBackward();
+         return new Iterator<String>() {
+            boolean atStart = currentLookaheadToken == null;
+            public boolean hasNext() {
+               return nestedStack.hasNext();
+            }
+            public String next() {
+               if (atStart) {
+                  atStart = false;
+                  return currentlyParsedProduction;
+               }
+               return nestedStack.next().productionName;
+            }
+         };
+    }
+
+    boolean canIgnoreNewlines() {
+        Iterator<String> it = stackIteratorIncludingCurrent();
+        while (it.hasNext()) {
+            String caller = it.next();
+            if (caller == "Statement"
+                || caller == "Block"
+                || caller == "LambdaLiteral"
+                || caller == "ClassBody"
+                || caller == "EnumClassBody")
+            {
+               return false;
+            }
+            if (caller == "ParentheticalExpression"
+                || caller == "ValueArguments"
+                || caller == "ParenthesizedType"
+                || caller == "ParenthesizedUserType"
+                || caller == "FunctionTypeParameters"
+                || caller == "LineStrExpression"
+                || caller == "MultilineInterpolation"
+                || caller == "ContextParameters"
+                || caller == "MultiVariableDeclaration"
+                || caller == "DestructuringVariableDeclaration"
+                || caller == "IfExpression"
+                || caller == "WhileStatement"
+                || caller == "DoWhileStatement"
+                || caller == "ClassParameters"
+                || caller == "FunctionValueParameters"
+                || caller == "WhenSubject"
+                || caller == "ParametersWithOptionalType"
+                || caller == "TypeParameters"
+                || caller == "CollectionLiteral")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+ClassMemberDeclarations : (ClassMemberDeclaration [Semis])* ;
+
+ClassMemberDeclaration :
+   CompanionObject
+   |
+   AnonymousInitializer
+   |
+   SecondaryConstructor
+   |
+   Declaration
+;
+
+AnonymousInitializer : 'init' NLs Block ;
+
+CompanionObject :
+    [Modifiers]
+    'companion' =>||
+    NLs
+    ['data']
+    NLs
+    "object"
+    [NLs <IDENTIFIER> =>||]
+    [NLs ":" =>|| NLs DelegationSpecifiers]
+    [NLs =>|+1 ClassBody]
+;
+
+SecondaryConstructor :
+   [Modifiers]
+   'constructor' =>||
+   NLs
+   FunctionValueParameters
+   [NLs ":" =>|| NLs ConstructorDelegationCall]
+   NLs
+   [Block]
+;
+
+ConstructorDelegationCall : ("this"|"super") NLs ValueArguments ;
+
+FunctionValueParameters :
+   "("
+   NLs
+   [
+      FunctionValueParameter
+      (NLs "," NLs =>|+1 FunctionValueParameter)*
+      [NLs "," =>||]
+   ]
+   NLs
+   ")"
+;
+
+FunctionValueParameter :
+    [ParameterModifiers]
+    Parameter
+    [NLs "=" =>|| NLs Expression]
+;
+
+ParameterModifiers :
+    (Annotation|ParameterModifier)+
+;
+
+ParameterModifier#void : 'vararg' | 'noinline' | 'crossinline' ;
+
+FunctionValueParameterWithOptionalType :
+   [ParameterModifiers]
+   ParameterWithOptionalType
+   [NLs "=" =>|| NLs Expression]
+;
+
+ParameterWithOptionalType : <IDENTIFIER> NLs [":" NLs Type] ;
+
+EnumEntries : EnumEntry =>|| (NLs "," NLs =>|+1 EnumEntry)* NLs [","] ;
+
+EnumEntry :
+   [Modifiers NLs]
+   <IDENTIFIER>
+   [NLs =>|+1 ValueArguments]
+   [NLs =>|+1 ClassBody]
+;
+
+PrimaryExpression#interface :
+   LiteralConstant
+   |
+   StringLiteral
+   |
+   CallableReference
+   |
+   <IDENTIFIER>
+   |
+   ParenthesizedExpression
+   |
+   LambdaLiteral
+   |
+   AnonymousFunction
+   |
+   ObjectLiteral
+   |
+   CollectionLiteral
+   |
+   ThisExpression
+   |
+   SuperExpression
+   |
+   IfExpression
+   |
+   WhenExpression
+   |
+   TryExpression
+   |
+   ThrowExpression
+   |
+   ReturnExpression
+   |
+   ContinueExpression
+   |
+   BreakExpression
+;
+
+ParenthesizedExpression : "(" NLs Expression NLs ")" ;
+
+LiteralConstant#void :
+   "true" | "false" | "null" |
+   <INTEGER_LITERAL> | <HEX_LITERAL> | <BIN_LITERAL> |
+   <CHARACTER_LITERAL> | <FLOAT_LITERAL> | <DOUBLE_LITERAL> |
+   <LONG_LITERAL> | <UNSIGNED_LITERAL>
+;
+
+CallableReference :
+   [([TypeModifiers] NullableType) #ReceiverType]
+   "::" =>||
+   NLs
+   (<IDENTIFIER> | "class")
+;
+
+ObjectLiteral# :
+   ['data']
+   NLs
+   "object" =>||
+   [NLs ":" =>|| NLs DelegationSpecifiers NLs]
+   [NLs =>|+1 ClassBody]
+;
+
+WhenExpression :
+   "when"
+   NLs
+   [WhenSubject]
+   NLs
+   "{"
+   NLs
+   (WhenEntry NLs)*
+   NLs
+   "}"
+;
+
+WhenEntry :
+   WhenCondition
+   [NLs "if" =>||
+      Expression
+      ASSERT {getTokenType(1) != COMMA :
+             "Cannot have a guard condition in a comma-separated When entry"}
+   ]
+   (NLs "," =>|+1 NLs WhenCondition)*
+   [NLs "," =>||]
+   NLs "->" NLs ControlStructureBody [Semis]
+   |
+   "else" NLs "->" NLs ControlStructureBody [Semis]
+;
+
+WhenCondition:
+   Expression
+   |
+   RangeTest
+   |
+   TypeTest
+;
+
+TypeTest : IsOperator NLs Type ;
+
+RangeTest : InOperator NLs Expression ;
+
+WhenSubject :
+    "("
+       [
+         (Annotation)*
+         NLs
+         "val"
+         NLs
+         VariableDeclaration
+         NLs
+         "="
+         NLs
+       ]
+       Expression
+       NLs
+    ")"
+;
+
+ThisExpression# : "this" | <THIS_AT> ;
+
+SuperExpression :
+    <SUPER_AT>
+    |
+    "super" ["<" NLs Type NLs ">"]
+    [
+      ENSURE {
+         !Character.isWhitespace(getToken(1).charAt(-1))
+         && !Character.isWhitespace(getToken(1).charAt(1))
+      }
+      "@"
+      <IDENTIFIER>
+    ]
+;
+
+AnonymousFunction :
+   ['suspend']
+   NLs
+   "fun"
+   [NLs Type NLs "." =>||]
+   NLs
+   =>|+1
+   ParametersWithOptionalType
+   [NLs ":" =>|| NLs Type]
+   [NLs =>|+1 TypeConstraints]
+   [NLs =>|+1 FunctionBody]
+;
+
+ParametersWithOptionalType :
+  "("
+  NLs
+  [
+   FunctionValueParameterWithOptionalType
+   (NLs "," NLs =>|+1 FunctionValueParameterWithOptionalType)*
+   [NLs "," =>|| NLs]
+  ]
+  NLs
+  ")"
+;
+
+IfExpression :
+   "if"
+   "("
+   NLs
+   Expression
+   NLs
+   ")"
+   NLs
+   (ControlStructureBody | ";")
+   [
+       NLs
+      "else"
+      ENSURE ~("->")
+      =>||
+      NLs
+      (ControlStructureBody | ";")
+   ]
+;
+
+CollectionLiteral :
+   "["
+   [
+        Expression
+        ("," =>|+1 Expression)*
+        [","]
+   ]
+   "]"
+;
+
+TryExpression :
+    {boolean hasCatch = false, hasFinally = false;}
+    "try" NLs Block
+    (NLs =>|+1 CatchBlock {hasCatch = true;})*
+    [NLs =>|+1 FinallyBlock {hasFinally = true;}]
+    ASSERT {hasCatch | hasFinally : "There must be at least one catch or finally block."}
+;
+
+CatchBlock :
+   'catch'
+   NLs
+   "("
+   (Annotation)*
+   ("_"|<IDENTIFIER>)
+   ":"
+   Type
+   [NLs "," =>||]
+   ")"
+   NLs
+   Block
+;
+
+FinallyBlock : 'finally' NLs Block ;
+
+ThrowExpression : "throw" NLs Expression ;
+
+ReturnExpression# :
+    (
+      <RETURN_AT>
+      |
+      "return"
+    )
+    [
+      ENSURE ~(";"|<NL>)
+      Expression
+    ]
+;
+
+ContinueExpression# : <CONTINUE_AT> | "continue" ;
+
+BreakExpression# : <BREAK_AT> | "break" ;
+
+INJECT LineStringLiteral : extends StringLiteral
+INJECT MultilineStringLiteral : extends StringLiteral
+
+StringLiteral#abstract :
+    LineStringLiteral
+    |
+    MultilineStringLiteral
+;
+
+LineStringLiteral :
+    <SINGLE_QUOTE_OPEN>
+    LEXICAL_STATE IN_REGULAR_STRING
+    (
+       (<LINE_STRING_CONTENT>|<FIELD_IDENTIFIER>|LineStrExpression)*
+       <SINGLE_QUOTE_CLOSE>
+    )
+;
+
+MultilineStringLiteral :
+  <TRIPLE_QUOTE_OPEN>
+  LEXICAL_STATE IN_MULTILINE_STRING
+  (
+   (
+      <MULTI_LINE_TEXT>
+      |
+      MultilineInterpolation
+   )*
+   <TRIPLE_QUOTE_CLOSE>
+  )
+;
+
+LineStrExpression :
+    <LINE_STR_EXPRESSION_START>
+    LEXICAL_STATE KOTLIN (Expression "}")
+;
+
+MultilineInterpolation :
+   <MULT_LINE_EXPRESSION_START>
+   LEXICAL_STATE KOTLIN
+   ( Expression "}")
+;
+
+INJECT StringLiteral : implements Expression
+
