@@ -1,0 +1,80 @@
+<project name="rust-parser" default="compile">
+    <target name="init">
+        <uptodate property="parser.uptodate"
+            targetfile="org/parsers/rust/RustParser.java">
+            <srcfiles dir="." includes="*.ccc" />
+        </uptodate>
+        <available
+           property="congo.jar.location"
+           file="../../congocc.jar"
+           value="../../congocc.jar"
+        />
+        <available
+           property="congo.jar.location"
+           file="../../bin/congocc.jar"
+           value="../../bin/congocc.jar"
+        />
+        <available
+           property="congo.jar.location"
+           file="../bin/congocc.jar"
+           value="../bin/congocc.jar"
+        />
+    </target>
+
+    <target name="update-jar">
+        <get src="https://parsers.org/download/congocc.jar"
+             dest="../bin/congocc.jar"
+             usetimestamp="true"
+        />
+    </target>
+
+    <target name="get-jar" depends="init" unless="congo.jar.location">
+        <echo>Downloading congo jar...</echo>
+        <mkdir dir="../bin"/>
+        <get src="https://parsers.org/download/congocc.jar"
+             dest="../bin/congocc.jar"
+        />
+        <available
+           property="congo.jar.location"
+           file="../bin/congocc.jar"
+           value="../bin/congocc.jar"
+        />
+    </target>
+
+    <target name="clean">
+        <delete file="RParse.class"/>
+        <delete dir="org" />
+    </target>
+
+    <target name="build-parser" depends="get-jar" unless="parser.uptodate">
+        <echo>Generating the Rust parser...</echo>
+        <java fork="true" jar="${congo.jar.location}" failonerror="true">
+            <assertions>
+                <enable />
+            </assertions>
+            <arg line="-n -q Rust.ccc" />
+        </java>
+    </target>
+
+    <target name="compile" depends="build-parser">
+        <javac srcdir="."
+            deprecation="off"
+            debug="on"
+            optimize="off"
+            failonerror="true"
+            includeantruntime="false"
+            release="8"/>
+        <echo>Test harness is: java RParse directory_or_files</echo>
+    </target>
+
+    <target name="test" depends="compile">
+        <java fork="true"
+              failonerror="true"
+              classname="RParse" >
+            <assertions>
+                <enable />
+            </assertions>
+            <arg value="testfiles" />
+        </java>
+    </target>
+</project>

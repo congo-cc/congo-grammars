@@ -1,3 +1,4 @@
 *.class
 /bin/congocc.jar
-/kotlin/org/*
+/*/org/*
+*.code-workspace
