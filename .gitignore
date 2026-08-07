@@ -1,4 +1,4 @@
 *.class
-/bin/congocc.jar
+/shared/congocc.jar
 /*/org/*
 *.code-workspace

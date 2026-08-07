@@ -1,0 +1,75 @@
+<project name="common" default="compile">
+
+    <dirname property="common.basedir" file="${ant.file.common}"/>
+
+    <target name="congo-init">
+        <available
+           property="congo.jar.location"
+           file="../../congocc.jar"
+           value="../../congocc.jar"
+        />
+        <available
+           property="congo.jar.location"
+           file="../../bin/congocc.jar"
+           value="../../bin/congocc.jar"
+        />
+        <available
+           property="congo.jar.location"
+           file="${common.basedir}/congocc.jar"
+           value="${common.basedir}/congocc.jar"
+        />
+    </target>
+
+    <target name="update-jar">
+        <get src="https://parsers.org/download/congocc.jar"
+             dest="${common.basedir}/congocc.jar"
+             usetimestamp="true"
+        />
+    </target>
+
+    <target name="get-congo-jar" depends="congo-init" unless="congo.jar.location">
+        <echo>Downloading congo jar...</echo>
+        <get src="https://parsers.org/download/congocc.jar"
+             dest="${common.basedir}/congocc.jar"
+        />
+        <property name="congo.jar.location"
+                  value="${common.basedir}/congocc.jar"
+        />
+    </target>
+
+    <target name="build-parser" depends="init,get-congo-jar" unless="parser.uptodate">
+        <echo>Generating the ${project.name} parser...</echo>
+        <java fork="true" jar="${congo.jar.location}" failonerror="true">
+            <assertions>
+                <enable />
+            </assertions>
+            <arg line="-n -q ${grammar.file}" />
+        </java>
+    </target>
+    <target name="clean">
+        <delete file="KParse.class"/>
+        <delete dir="org" />
+    </target>
+
+    <target name="compile" depends="build-parser">
+        <javac srcdir="."
+            deprecation="off"
+            debug="on"
+            optimize="off"
+            failonerror="true"
+            includeantruntime="false"
+            release="8"/>
+        <echo>Test harness is: java ${test.harness} directory_or_files</echo>
+    </target>
+
+    <target name="test" depends="compile">
+        <java fork="true"
+              failonerror="true"
+              classname="${test.harness}" >
+            <assertions>
+                <enable />
+            </assertions>
+            <arg value="testfiles" />
+        </java>
+    </target>
+</project>
