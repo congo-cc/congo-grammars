@@ -18,6 +18,16 @@ KotlinFile :
   <EOF>
 ;
 
+Script :
+  ACTIVATE_TOKENS SHEBANG [<SHEBANG>]
+  NLs
+  (FileAnnotation)*
+  [PackageDeclaration]
+  (ImportDeclaration)*
+  (SCAN ~(<EOF>) => Statement Semi)*
+  <EOF>
+;
+
 TopLevelObject : Declaration [Semis] ;
 
 DottedName : <IDENTIFIER> ("." <IDENTIFIER> =>||)* ;
@@ -1244,10 +1254,11 @@ IfExpression :
 
 CollectionLiteral :
    "["
+   NLs
    [
         Expression
-        ("," =>|+1 Expression)*
-        [","]
+        (NLs "," NLs j=>|+1 Expression)*
+        [NLs "," =>||]
    ]
    "]"
 ;
