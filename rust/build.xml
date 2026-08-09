@@ -1,9 +1,10 @@
 <project name="Rust" default="compile">
+    <import file="../ant-common.xml" />
     <!--
       The compile, build-parser etc targets are all
-      defined in the imported file.
+      defined in the imported file. However, it needs
+      the following properties to bedefined.
     -->
-    <import file="../ant-common.xml" />
     <property name="test.harness" value="RParse"/>
     <property name="grammar.file" value="Rust.ccc"/>
     <property name="parser.generated.source" value="org/parsers/rust/RustParser.java"/>

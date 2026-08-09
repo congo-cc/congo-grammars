@@ -31,13 +31,13 @@
 
     <target name="get-congo-jar" depends="congo-init" unless="congo.jar.location">
         <echo>Getting bootstrap jarfile...</echo>
-        <exec executable="git" dir="." failonerror="true">
+        <exec executable="git" dir=".." failonerror="true">
            <arg line="submodule update --init --recursive" />
         </exec>
-        <exec executable="git" dir="bin" failonerror="true">
+        <exec executable="git" dir="../bin" failonerror="true">
            <arg line="checkout congocc.jar" />
         </exec>
-        <property name="congo.jar.location" value="bin/congocc.jar" />
+        <property name="congo.jar.location" value="../bin/congocc.jar" />
     </target>
 
     <target name="check-parser-uptodate" depends="congo-init">
