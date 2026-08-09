@@ -1,4 +1,5 @@
 *.class
 /shared/congocc.jar
 /*/org/*
+/*/*Parse.java
 *.code-workspace

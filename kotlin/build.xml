@@ -3,9 +3,13 @@
     <!--
       The compile, build-parser etc targets are all
       defined in the imported file. However, it needs
-      the following properties to bedefined.
+      the following properties to be defined.
     -->
     <property name="test.harness" value="KParse"/>
     <property name="grammar.file" value="Kotlin.ccc"/>
     <property name="parser.generated.source" value="org/parsers/kotlin/KotlinParser.java"/>
+    <property name="parser.package" value="org.parsers.kotlin"/>
+    <property name="parser.class" value="KotlinParser"/>
+    <property name="lang.extension" value=".kt"/>
+    <property name="parser.root" value="KotlinFile"/>
 </project>

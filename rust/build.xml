@@ -3,9 +3,13 @@
     <!--
       The compile, build-parser etc targets are all
       defined in the imported file. However, it needs
-      the following properties to bedefined.
+      the following properties to be defined.
     -->
     <property name="test.harness" value="RParse"/>
     <property name="grammar.file" value="Rust.ccc"/>
+    <property name="parser.package" value="org.parsers.rust"/>
+    <property name="parser.class" value="RustParser"/>
     <property name="parser.generated.source" value="org/parsers/rust/RustParser.java"/>
+    <property name="lang.extension" value=".rs"/>
+    <property name="parser.root" value="Crate"/>
 </project>

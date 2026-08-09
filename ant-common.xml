@@ -56,7 +56,22 @@
         </java>
     </target>
 
-    <target name="compile" depends="build-parser">
+    <target name="check-java-test-harness" unless="java.test.harness.present">
+        <available property="java.test.harness.present" file="${test.harness}.java"/>
+    </target>
+
+    <target name="generate-java-test-harness" depends="check-java-test-harness" unless="java.test.harness.present">
+        <copy file="../templates/JAVA_TEST_HARNESS" tofile="${test.harness}.java"/>
+        <replace file="${test.harness}.java">
+          <replacefilter token="PARSER_CLASS" value="${parser.class}"/>
+          <replacefilter token="PARSER_PACKAGE" value="${parser.package}"/>
+          <replacefilter token="LANG_EXTENSION" value="${lang.extension}"/>
+          <replacefilter token="THIS_CLASS" value="${test.harness}"/>
+          <replacefilter token="PARSER_ROOT" value="${parser.root}"/>
+        </replace>
+    </target>
+
+    <target name="compile" depends="build-parser,generate-java-test-harness">
         <javac srcdir="."
             deprecation="off"
             debug="on"

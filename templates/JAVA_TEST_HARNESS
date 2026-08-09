@@ -7,13 +7,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 import java.nio.file.Path;
-import org.parsers.kotlin.KotlinParser;
-import org.parsers.kotlin.Node;
+import PARSER_PACKAGE.PARSER_CLASS;
+import PARSER_PACKAGE.Node;
 
 /**
- * A test harness for parsing Kotlin files from the command line.
+ * A test harness for parsing LANG files from the command line.
  */
-public class KParse {
+public class THIS_CLASS {
     static List<Node> roots = new ArrayList<>();
     static private List<Path> paths = new ArrayList<Path>(),
                               failures = new ArrayList<Path>(),
@@ -56,9 +56,9 @@ public class KParse {
                                ? paths.parallelStream()
                                :  paths.stream();
         stream.forEach(path -> parseFile(path));
-//        for (Path path : failures) {
-//            System.out.println("Parse failed on: " + path);
-//        }
+        for (Path path : failures) {
+            System.out.println("Parse failed on: " + path);
+        }
         System.out.println("\nParsed " + successes.size() + " files successfully");
         System.out.println("Failed on " + failures.size() + " files");
         System.out.println("\nDuration: " + (System.currentTimeMillis() - startTime) + " milliseconds");
@@ -68,7 +68,7 @@ public class KParse {
     static void addPaths(Path path, List<Path> paths) throws IOException {
         Files.walk(path).forEach(p->{
             if (!Files.isDirectory(p)) {
-                if (p.toString().endsWith(".kt")) {
+                if (p.toString().endsWith("LANG_EXTENSION")) {
                     paths.add(p);
                 }
                 else if (p.toString().endsWith(".jar") || p.toString().endsWith(".zip")) {
@@ -88,9 +88,9 @@ public class KParse {
 
     static public void parseFile(Path path) {
         try {
-            KotlinParser parser = new KotlinParser(path);
+            PARSER_CLASS parser = new PARSER_CLASS(path);
             if (!quiet) System.out.print("Parsing " + path);
-            parser.KotlinFile();
+            parser.PARSER_ROOT();
             Node root = parser.rootNode();
             if (retainInMemory) roots.add(root);
             if (paths.size()==1) {
@@ -112,8 +112,8 @@ public class KParse {
     }
 
     static public void usage() {
-        System.out.println("Usage: java KParse <sourcefiles or directories>");
-        System.out.println("If you just pass it one Kotlin source file, it dumps the AST");
+        System.out.println("Usage: java THIS_CLASS <sourcefiles or directories>");
+        System.out.println("If you just pass it one LANG source file, it dumps the AST");
         System.out.println("Use the -p flag to set whether to parse in multiple threads");
         System.out.println("Use the -q flag for quieter output");
         System.out.println("Use the -r flag to retain all the parsed AST's in memory");
