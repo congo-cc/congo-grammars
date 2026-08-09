@@ -8,7 +8,10 @@
 
     <target name="congo-init">
         <!-- The first two available tasks are there for the case
-             in which this repository is being used as a submodule.-->
+             in which this repository is being used as a submodule
+             and the congocc.jar is already present in the containing
+             repository.
+        -->
         <available
            property="congo.jar.location"
            file="../congocc.jar"

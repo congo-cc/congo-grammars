@@ -1,4 +1,8 @@
 <project name="Kotlin" default="compile">
+    <!--
+      The compile, build-parser etc targets are all
+      defined in the imported file.
+    -->
     <import file="../ant-common.xml" />
     <property name="test.harness" value="KParse"/>
     <property name="grammar.file" value="Kotlin.ccc"/>
