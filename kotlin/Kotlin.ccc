@@ -1257,7 +1257,7 @@ CollectionLiteral :
    NLs
    [
         Expression
-        (NLs "," NLs j=>|+1 Expression)*
+        (NLs "," NLs =>|+1 Expression)*
         [NLs "," =>||]
    ]
    "]"
