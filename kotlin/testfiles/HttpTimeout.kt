@@ -92,9 +92,7 @@ public class HttpTimeoutConfig {
         cause: Throwable? = null
     ): SocketTimeoutException = SocketTimeoutException(
         "Socket timeout has expired [url=${request.url}, " +
-            "socket_timeout=${
-                request.getCapabilityOrNull(HttpTimeoutCapability)?.socketTimeoutMillis ?: "unknown"
-            }] ms",
+            "socket_timeout=${ request.getCapabilityOrNull(HttpTimeoutCapability)?.socketTimeoutMillis ?: "unknown" }] ms",
         cause
     )
 
@@ -284,10 +282,8 @@ public fun SocketTimeoutException(
     cause: Throwable? = null
 ): SocketTimeoutException = SocketTimeoutException(
     "Socket timeout has expired [url=${request.url}, " +
-        "socket_timeout=${
-            request.getCapabilityOrNull(HttpTimeoutCapability)?.socketTimeoutMillis ?: "unknown"
-        }] ms",
-    cause
+        "socket_timeout=${ request.getCapabilityOrNull(HttpTimeoutCapability)?.socketTimeoutMillis ?: "unknown" }] ms",
+        cause
 )
 
 /**

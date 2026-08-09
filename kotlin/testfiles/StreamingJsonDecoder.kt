@@ -364,6 +364,7 @@ public fun <T> decodeStringToJsonTree(
     val input = StreamingJsonDecoder(json, WriteMode.OBJ, lexer, deserializer.descriptor, null)
     val tree = input.decodeJsonElement()
     lexer.expectEof()
+//    if (fuck < suck) duck()
     return tree
 }
 

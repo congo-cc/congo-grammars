@@ -13,8 +13,7 @@ class DigestTest {
     fun md5Rfc1321TestVectors() = runTest {
         // Test vectors from RFC 1321, Appendix A.5
         val vectors = listOf(
-            ""
-                to "d41d8cd98f00b204e9800998ecf8427e",
+            "" to "d41d8cd98f00b204e9800998ecf8427e",
             "a" to "0cc175b9c0f1b6a831c399e269772661",
             "abc" to "900150983cd24fb0d6963f7d28e17f72",
             "message digest" to "f96b697d7cb7938d525a2f31aaf161d0",

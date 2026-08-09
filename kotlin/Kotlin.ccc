@@ -355,9 +355,9 @@ InfixFunctionCall :
 
 RangeExpression : AdditiveExpression ((".." | "..<") NLs AdditiveExpression)* ;
 
-AdditiveExpression : MultiplicativeExpression (("+"|"-") NLs MultiplicativeExpression)* ;
+AdditiveExpression : MultiplicativeExpression (("+"|"-") NLs =>|| MultiplicativeExpression)* ;
 
-MultiplicativeExpression : AsExpression (("*"|"/"|"%") NLs AsExpression)* ;
+MultiplicativeExpression : AsExpression (("*"|"/"|"%") NLs =>|| AsExpression)* ;
 
 AsExpression : PrefixUnaryExpression (NLs ("as"|"as?") =>|| NLs Type)* ;
 
@@ -965,7 +965,8 @@ INJECT PARSER_CLASS : {
                 || caller == "Block"
                 || caller == "LambdaLiteral"
                 || caller == "ClassBody"
-                || caller == "EnumClassBody")
+                || caller == "EnumClassBody"
+                || caller == "WhenExpression")
             {
                return false;
             }
@@ -979,9 +980,9 @@ INJECT PARSER_CLASS : {
                 || caller == "ContextParameters"
                 || caller == "MultiVariableDeclaration"
                 || caller == "DestructuringVariableDeclaration"
-                || caller == "IfExpression"
-                || caller == "WhileStatement"
-                || caller == "DoWhileStatement"
+//                || caller == "IfExpression"
+//                || caller == "WhileStatement"
+//                || caller == "DoWhileStatement"
                 || caller == "ClassParameters"
                 || caller == "FunctionValueParameters"
                 || caller == "WhenSubject"
@@ -994,6 +995,49 @@ INJECT PARSER_CLASS : {
         }
         return false;
     }
+
+    String getCurrentProduction() {
+      return currentlyParsedProduction;
+    }
+    String getCurrentLookaheadProduction() {
+      return currentLookaheadProduction;
+    }
+
+    BASE_TOKEN_CLASS TOKEN_HOOK(BASE_TOKEN_CLASS tok) {
+      if (tok.getType() == NL && !tok.isUnparsed()) {
+         BASE_TOKEN_CLASS previousToken = tok.getPrevious();
+         if (previousToken != null) {
+            TokenType prevType = previousToken.getType();
+            if (prevType == ADD
+                || prevType == SUB
+                || prevType == MOD
+                || prevType == MULT
+                || prevType == DIV
+                || prevType == LCURL
+                || prevType == LINE_STR_EXPRESSION_START
+                || prevType == MULT_LINE_EXPRESSION_START)
+            {
+               tok.setUnparsed(true);
+               return tok;
+            }
+         }
+/*         BASE_TOKEN_CLASS nextToken = token_source.getNextToken(tok);
+         TokenType nextType = nextToken.getType();
+         if (nextType == ADD
+                || nextType == SUB
+                || nextType == MOD
+                || nextType == MULT
+                || nextType == DIV)
+         {
+               tok.setUnparsed(true);
+               return tok;
+         }*/
+         if (canIgnoreNewlines()) {
+            tok.setUnparsed(true);
+         }
+      }
+      return tok;
+   }
 }
 
 ClassMemberDeclarations : (ClassMemberDeclaration [Semis])* ;
@@ -1144,7 +1188,7 @@ WhenExpression :
    NLs
    "{"
    NLs
-   (WhenEntry NLs)*
+   (SCAN ~("}") => WhenEntry NLs)*
    NLs
    "}"
 ;
@@ -1164,11 +1208,11 @@ WhenEntry :
 ;
 
 WhenCondition:
-   Expression
+   TypeTest
    |
    RangeTest
    |
-   TypeTest
+   Expression
 ;
 
 TypeTest : IsOperator NLs Type ;
