@@ -1,12 +1,12 @@
 <project name="Rust" default="compile">
     <import file="../shared/common.xml" />
     <property name="test.harness" value="RParse"/>
-    <target name="init" depends="congo-init">
+    <property name="grammar.file" value="Rust.ccc"/>
+    <property name="project.name" value="Rust"/>
+    <target name="check-parser-uptodate" depends="congo-init">
         <uptodate property="parser.uptodate"
             targetfile="org/parsers/rust/RustParser.java">
             <srcfiles dir="." includes="*.ccc" />
         </uptodate>
-        <property name="grammar.file" value="Rust.ccc"/>
-        <property name="project.name" value="Rust"/>
     </target>
 </project>
