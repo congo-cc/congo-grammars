@@ -1,14 +1,6 @@
 <project name="Kotlin" default="compile">
-
-    <import file="../shared/common.xml" />
+    <import file="../ant-common.xml" />
     <property name="test.harness" value="KParse"/>
     <property name="grammar.file" value="Kotlin.ccc"/>
-    <property name="project.name" value="Kotlin"/>
-
-    <target name="check-parser-uptodate" depends="congo-init">
-        <uptodate property="parser.uptodate"
-            targetfile="org/parsers/kotlin/KotlinParser.java">
-            <srcfiles dir="." includes="*.ccc" />
-        </uptodate>
-    </target>
+    <property name="parser.generated.source" value="org/parsers/kotlin/KotlinParser.java"/>
 </project>

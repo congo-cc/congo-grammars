@@ -1,12 +1,6 @@
 <project name="Rust" default="compile">
-    <import file="../shared/common.xml" />
+    <import file="../ant-common.xml" />
     <property name="test.harness" value="RParse"/>
     <property name="grammar.file" value="Rust.ccc"/>
-    <property name="project.name" value="Rust"/>
-    <target name="check-parser-uptodate" depends="congo-init">
-        <uptodate property="parser.uptodate"
-            targetfile="org/parsers/rust/RustParser.java">
-            <srcfiles dir="." includes="*.ccc" />
-        </uptodate>
-    </target>
+    <property name="parser.generated.source" value="org/parsers/rust/RustParser.java"/>
 </project>
