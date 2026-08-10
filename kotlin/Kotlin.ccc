@@ -161,7 +161,7 @@ TypeModifiers :
    ('suspend' | Annotation)+
 ;
 
-ParenthesizedType : "(" NLs Type NLs ")" ;
+ParenthesizedType : "(" Type ")" ;
 
 FunctionType :
    [ReceiverType NLs "." =>|| NLs]
@@ -421,7 +421,6 @@ IndexingSuffix#void :
     NLs
     Expression
     ("," NLs =>|+1 Expression)* [","]
-    NLs
     "]"
 ;
 
@@ -502,7 +501,6 @@ MultiVariableDeclaration :
       )
     )*
     [","]
-    NLs
     ")"
 ;
 
@@ -550,7 +548,6 @@ ForStatement :
    )
    "in"
    Expression
-   NLs
    ")"
    NLs
    [ControlStructureBody]
@@ -700,7 +697,6 @@ ClassParameters :
         ClassParameter
         ("," =>|+1 ClassParameter)* [","]
     ]
-    NLs
     ")"
 ;
 
@@ -752,7 +748,7 @@ Getter :
       NLs
       "(" =>||
       ")"
-      [NLs ":" =>|| Type]
+      [":" =>|| Type]
       NLs
       FunctionBody
    ]
@@ -775,7 +771,6 @@ SetterLA#scan :
       |
       FunctionValueParameterWithOptionalType [","]
    )
-   NLs
    ")"
    NLs
    ("{" | "=")
@@ -794,7 +789,6 @@ Setter :
          |
          FunctionValueParameterWithOptionalType [","]
       )
-      NLs
       ")"
       [NLs ":" =>|| Type]
       NLs
@@ -981,8 +975,9 @@ INJECT PARSER_CLASS : {
       EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ
     );
 
+    // Ignore the newlines preceding these token types
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
-      COLON,COMMA,ELVIS
+      COLON,COMMA,RPAREN,RSQUARE,ELVIS,FINALLY,THROW
     );
 
     private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
@@ -1044,7 +1039,7 @@ SecondaryConstructor :
    [Modifiers]
    'constructor' =>||
    FunctionValueParameters
-   [NLs ":" =>|| ConstructorDelegationCall]
+   [":" ConstructorDelegationCall]
    NLs
    [Block]
 ;
@@ -1127,7 +1122,7 @@ PrimaryExpression#interface :
    BreakExpression
 ;
 
-ParenthesizedExpression : "(" Expression NLs ")" ;
+ParenthesizedExpression : "(" Expression ")" ;
 
 LiteralConstant#void :
    "true" | "false" | "null" |
@@ -1147,7 +1142,7 @@ ObjectLiteral# :
    ['data']
    NLs
    "object" =>||
-   [NLs ":" =>|| DelegationSpecifiers NLs]
+   [":" =>|| DelegationSpecifiers NLs]
    [NLs =>|+1 ClassBody]
 ;
 
@@ -1236,7 +1231,7 @@ ParametersWithOptionalType :
 
 IfExpression :
    "if"
-   "(" Expression NLs ")"
+   "(" Expression ")"
    NLs
    (ControlStructureBody | ";")
    [
@@ -1281,9 +1276,9 @@ CatchBlock :
    Block
 ;
 
-FinallyBlock : 'finally' NLs Block ;
+FinallyBlock : 'finally' Block ;
 
-ThrowExpression : "throw" NLs Expression ;
+ThrowExpression : "throw" Expression ;
 
 ReturnExpression# :
     (
