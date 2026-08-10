@@ -4,7 +4,6 @@ DEACTIVATE_TOKENS = SHEBANG;
 TAB_SIZE=4;
 ENSURE_FINAL_EOL;
 PARSER_PACKAGE=org.parsers.kotlin;
-LEXER_USES_PARSER;
 
 INCLUDE "KotlinLexer.ccc"
 
@@ -109,7 +108,6 @@ TypeArguments :
    "<"
    TypeProjection
    ("," =>|+1 TypeProjection)* [","]
-   NLs // Why is this necessary? REVISIT.
    ">"
 ;
 
@@ -166,9 +164,8 @@ ParenthesizedType : "(" Type ")" ;
 FunctionType :
    [ReceiverType NLs "." =>|| NLs]
    FunctionTypeParameters
-   NLs
-   "->" =>||
-   NLs
+   "->"
+   =>||
    Type
 ;
 
@@ -456,10 +453,8 @@ LambdaLiteral :
     "{"
     [
         [LambdaParameters]
-        NLs
         "->"
         =>||
-        NLs
     ]
     (
        SCAN ~([Semis] "}") =>
@@ -549,7 +544,6 @@ ForStatement :
    "in"
    Expression
    ")"
-   NLs
    [ControlStructureBody]
 ;
 
@@ -654,7 +648,7 @@ FunctionDeclaration :
    =>||
    NLs
    FunctionValueParameters
-   [NLs ":" =>|| Type]
+   [":" Type]
    [NLs =>|+1 TypeConstraints]
    [NLs =>|+1 FunctionBody]
 ;
@@ -977,7 +971,7 @@ INJECT PARSER_CLASS : {
 
     // Ignore the newlines preceding these token types
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
-      COLON,COMMA,RPAREN,RSQUARE,ELVIS,FINALLY,THROW
+      COLON,COMMA,RPAREN,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,ARROW
     );
 
     private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
@@ -991,12 +985,11 @@ INJECT PARSER_CLASS : {
     BASE_TOKEN_CLASS TOKEN_HOOK(BASE_TOKEN_CLASS tok) {
       if (tok.getType() == NL && !tok.isUnparsed()) {
          BASE_TOKEN_CLASS previousToken = tok.getPrevious();
-         if (previousToken != null) {
-            if (ignoreFollowingNewlines.contains(previousToken.getType()))
-            {
-               tok.setUnparsed(true);
-               return tok;
-            }
+         if (previousToken != null
+             && ignoreFollowingNewlines.contains(previousToken.getType()))
+         {
+             tok.setUnparsed(true);
+             return tok;
          }
          if (ignorePrecedingNewlines.contains(nextNonNewlineType(tok))) {
             tok.setUnparsed(true);
@@ -1163,9 +1156,9 @@ WhenEntry :
              "Cannot have a guard condition in a comma-separated When entry"}
    ]
    ("," =>|+1 WhenCondition)* [","]
-   NLs "->" NLs ControlStructureBody [Semis]
+   "->" ControlStructureBody [Semis]
    |
-   "else" NLs "->" NLs ControlStructureBody [Semis]
+   "else" "->" ControlStructureBody [Semis]
 ;
 
 WhenCondition:
@@ -1197,7 +1190,7 @@ ThisExpression# : "this" | <THIS_AT> ;
 SuperExpression :
     <SUPER_AT>
     |
-    "super" ["<" NLs Type NLs ">"]
+    "super" ["<" Type ">"]
     [
       ENSURE {
          !Character.isWhitespace(getToken(1).charAt(-1))
