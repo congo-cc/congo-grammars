@@ -86,7 +86,7 @@ UserType :
     )*
 ;
 
-SimpleUserType : <IDENTIFIER> [NLs =>|+1 TypeArguments] ;
+SimpleUserType : <IDENTIFIER> [TypeArguments] ;
 
 ValueArguments :
    "("
@@ -176,7 +176,6 @@ ReceiverType# :
 
 NullableType :
    (TypeReference | ParenthesizedType)
-   NLs
    ("?")*
 ;
 
@@ -284,9 +283,9 @@ INJECT CollectionLiteral : implements PrimaryExpression
 INJECT AnonymousFunction : implements PrimaryExpression
 INJECT ThisExpression : implements PrimaryExpression
 
-Disjunction : Conjunction (NLs "||" =>|| Conjunction)* ;
+Disjunction : Conjunction ("||" Conjunction)* ;
 
-Conjunction : Equality (NLs "&&" =>|| Equality)* ;
+Conjunction : Equality ("&&" Equality)* ;
 
 Equality : Comparison (EqualityOperator Comparison)* ;
 
@@ -375,11 +374,9 @@ Label :
 ;
 
 PostfixUnarySuffixLA#scan :
-   "++" | "--" | "!"|"["|"::" | "("
+   "++" | "--" | "!"|"["|"::" | "(" | "."
    |
-   "."
-   |
-   NLs "?" "."
+   "?" "."
    ENSURE {getToken(-1).getEndOffset() == getToken(0).getBeginOffset()}
    |
    ENSURE {!isInExplicitDelegateAndNotParenthesized()}
@@ -408,9 +405,7 @@ PostfixUnarySuffix#void :
 PostfixUnaryOperator#void : "++" | "--" | "!" ;
 
 NavigationSuffix#void :
-    NLs
-    MemberAccessOperator
-    NLs =>||
+    MemberAccessOperator =>||
     (<IDENTIFIER> | ParenthesizedExpression | "class")
 ;
 
@@ -653,7 +648,7 @@ FunctionDeclaration :
    [NLs =>|+1 FunctionBody]
 ;
 
-FunctionBody : Block | "=" NLs Expression ;
+FunctionBody : Block | "=" Expression ;
 
 Modifiers# :
    ENSURE ~(Modifier ":")
@@ -679,7 +674,6 @@ TypeAlias :
    [NLs =>|+1 TypeParameters]
    NLs
    "="
-   NLs
    Type
 ;
 
@@ -715,7 +709,7 @@ PropertyDeclaration :
   [
    NLs =>|+1
    (
-    "=" NLs Expression
+    "=" Expression
     |
     PropertyDelegate
    )
@@ -964,7 +958,8 @@ INJECT PARSER_CLASS : {
 
     // Ignore the newlines preceding these token types
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
-      COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,ARROW,RPAREN,DOT
+      COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,
+      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST
     );
 
     private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
@@ -1017,7 +1012,7 @@ CompanionObject :
     NLs
     "object"
     [NLs <IDENTIFIER> =>||]
-    [NLs ":" =>|| DelegationSpecifiers]
+    [":" =>|| DelegationSpecifiers]
     [NLs =>|+1 ClassBody]
 ;
 
