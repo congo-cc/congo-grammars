@@ -105,6 +105,8 @@ TOKEN #Operator :
    |
    <RANGE : "..">
    |
+   <RANGE2 : "..<">
+   |
    <COLON_COLON : "::">
    |
    <SEMICOLON : ";">
@@ -131,13 +133,15 @@ TOKEN #Operator :
    |
    <GE : ">=">
    |
+   <AS_SAFE : "as?">
+   |
    <EXCL_EQ : "!=">
    |
    <EXCL_EQ_EQ : "!==">
    |
-   <AS_SAFE : "as?">
-   |
    <EQ_EQ : "==">
+   |
+   <EQ_EQ_EQ : "===">
 ;
 
 TOKEN #Keyword :

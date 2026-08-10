@@ -39,7 +39,7 @@ FileAnnotation :
    ENSURE {!Character.isWhitespace(token_source.charAt(getToken(0).getEndOffset()))}
    'file'
    =>||
-   NLs ":" NLs
+   ":"
     (
         "[" (UnescapedAnnotation)+ "]"
         |
@@ -93,27 +93,24 @@ ValueArguments :
    "("
    [
       ValueArgument
-      (NLs "," =>|+1 ValueArgument)* [NLs "," =>||]
-      NLs
+      ("," =>|+1 ValueArgument)* [","]
    ]
    ")"
 ;
 
 ValueArgument :
    [Annotation]
-   NLs
-   [<IDENTIFIER> NLs "=" =>|| NLs]
+   [<IDENTIFIER> "=" =>|| ]
    ["*"]
-   NLs
    Expression
 ;
 
 TypeArguments :
    "<"
    TypeProjection
-   (NLs "," =>|+1 TypeProjection)*
-   [NLs "," =>||]
-   NLs
+   ("," =>|+1 TypeProjection)*
+   [","]
+   NLs // Why is this necessary? REVISIT.
    ">"
 ;
 
@@ -124,7 +121,7 @@ TypeProjection :
 ;
 
 TypeProjectionModifiers :
-   ("in" NLs | 'out' NLs | Annotation)*
+   ("in" | 'out' | Annotation)*
 ;
 
 Annotation :
@@ -202,26 +199,24 @@ DefinitelyNonNullableType :
 ParenthesizedUserType :
     "("
     (UserType | ParenthesizedUserType)
-    //NLs
     ")"
 ;
 
 FunctionTypeParameters :
     "("
     [Parameter|Type]
-    (NLs "," NLs =>|+1 (Parameter | Type))*
-    [NLs "," =>||]
-    NLs
+    ("," =>|+1 (Parameter | Type))*
+    [","]
     ")"
 ;
 
-Parameter : <IDENTIFIER> NLs ":" =>|| NLs [ContextParameters] Type ;
+Parameter : <IDENTIFIER>  ":" =>|| [ContextParameters] Type ;
 
 ContextParameters :
   'context'
   "("
-      [<IDENTIFIER> NLs ":" NLs =>||] Type
-      ("," [<IDENTIFIER> NLs ":" NLs =>||] Type)*
+      [<IDENTIFIER> ":" =>||] Type
+      ("," [<IDENTIFIER> ":" =>||] Type)*
   ")"
 ;
 
@@ -294,11 +289,11 @@ INJECT CollectionLiteral : implements PrimaryExpression
 INJECT AnonymousFunction : implements PrimaryExpression
 INJECT ThisExpression : implements PrimaryExpression
 
-Disjunction : Conjunction (NLs "||" =>|| NLs Conjunction)* ;
+Disjunction : Conjunction (NLs "||" =>|| Conjunction)* ;
 
-Conjunction : Equality (NLs "&&" =>|| NLs Equality)* ;
+Conjunction : Equality (NLs "&&" =>|| Equality)* ;
 
-Equality : Comparison (EqualityOperator NLs Comparison)* ;
+Equality : Comparison (EqualityOperator Comparison)* ;
 
 Comparison :
     GenericCallLikeComparison
@@ -331,7 +326,7 @@ InfixOperation :
 
 ElvisExpression :
     InfixFunctionCall
-    (NLs "?:" =>|| NLs InfixFunctionCall)*
+    (NLs "?:" =>|| InfixFunctionCall)*
 ;
 
 InfixFunctionCall :
@@ -349,11 +344,11 @@ InfixFunctionCall :
    )*
 ;
 
-RangeExpression : AdditiveExpression ((".." | "..<") NLs AdditiveExpression)* ;
+RangeExpression : AdditiveExpression ((".." | "..<") AdditiveExpression)* ;
 
-AdditiveExpression : MultiplicativeExpression (("+"|"-") NLs =>|| MultiplicativeExpression)* ;
+AdditiveExpression : MultiplicativeExpression (("+"|"-") =>|| MultiplicativeExpression)* ;
 
-MultiplicativeExpression : AsExpression (("*"|"/"|"%") NLs =>|| AsExpression)* ;
+MultiplicativeExpression : AsExpression (("*"|"/"|"%") =>|| AsExpression)* ;
 
 AsExpression : PrefixUnaryExpression (NLs ("as"|"as?") =>|| NLs Type)* ;
 
@@ -484,19 +479,19 @@ LambdaParameters :
 ;
 
 LambdaParameter :
-   MultiVariableDeclaration [NLs ":" =>|| NLs Type]
+   MultiVariableDeclaration [":" Type]
    |
    VariableDeclaration
    |
-   "_" [NLs ":" =>|| NLs Type]
+   "_" [":" =>|| Type]
 ;
 
-VariableDeclaration : (Annotation)* NLs <IDENTIFIER> [NLs ":" =>|| NLs Type] ;
+VariableDeclaration : (Annotation)* NLs <IDENTIFIER> [":" Type] ;
 
 MultiVariableDeclaration :
     "("
     (
-      "_" [NLs ":" =>|| NLs Type]
+      "_" [":" =>|| Type]
       |
       VariableDeclaration
     )
@@ -505,7 +500,7 @@ MultiVariableDeclaration :
       ","
       =>|+1
       (
-         "_" [NLs ":" =>|| NLs Type]
+         "_" [":" =>|| Type]
          |
          VariableDeclaration
       )
@@ -518,22 +513,16 @@ MultiVariableDeclaration :
 DestructuringVariableDeclaration :
     "["
     DestructuringEntry
-    (NLs "," =>|+1 DestructuringEntry)*
-    [NLs "," =>||]
-    NLs
+    ("," =>|+1 DestructuringEntry)*
+    ["," ]
     "]"
 ;
 
-DestructuringEntry : "_" | <IDENTIFIER> NLs [":" NLs Type] ;
+DestructuringEntry : "_" | <IDENTIFIER> [":" Type] ;
 
-Semis :
-   (";" | <NL>)+
-;
+Semis : Semi (";")* ;
 
-Semi :
-   (";"|<NL>)
-   NLs
-;
+Semi#void : ";" | <NL> ;
 
 Statement :
    (Label|Annotation)*
@@ -573,20 +562,15 @@ ForStatement :
 
 WhileStatement :
     "while"
-    NLs
     "("
-    NLs
     Expression
-    NLs
     ")"
-    NLs
     (ControlStructureBody | ";")
 ;
 
 DoWhileStatement :
    "do"
    [ControlStructureBody]
-   NLs
    "while"
    "("
    Expression
@@ -602,11 +586,12 @@ ControlStructureBody#void :
 
 Block :
    "{"
-     (
-       SCAN ~([Semis] "}") =>
+    (
        [Semis]
+       ENSURE ~("}")
+       =>||
        Statement
-     )*
+   )*
    [Semis]
    "}"
 ;
@@ -661,7 +646,7 @@ ObjectDeclaration :
     "object"
     NLs
     <IDENTIFIER> =>||
-    [NLs ":" =>|| NLs DelegationSpecifiers]
+    [NLs ":" =>|| DelegationSpecifiers]
     [NLs =>|+1 ClassBody]
 ;
 
@@ -676,7 +661,7 @@ FunctionDeclaration :
    =>||
    NLs
    FunctionValueParameters
-   [NLs ":" =>|| NLs Type]
+   [NLs ":" =>|| Type]
    [NLs =>|+1 TypeConstraints]
    [NLs =>|+1 FunctionBody]
 ;
@@ -729,7 +714,6 @@ ClassParameter :
    NLs
    <IDENTIFIER>
    ":"
-   NLs
    Type
    [NLs "=" =>|| NLs Expression]
 ;
@@ -772,7 +756,7 @@ Getter :
       NLs
       "(" =>||
       ")"
-      [NLs ":" =>|| NLs Type]
+      [NLs ":" =>|| Type]
       NLs
       FunctionBody
    ]
@@ -816,7 +800,7 @@ Setter :
       )
       NLs
       ")"
-      [NLs ":" =>|| NLs Type]
+      [NLs ":" =>|| Type]
       NLs
       FunctionBody
    ]
@@ -824,23 +808,20 @@ Setter :
 
 TypeParameters :
    "<"
-   NLs
    TypeParameter
-   (NLs "," NLs =>|+1 TypeParameter)* [NLs "," =>||]
-   NLs
+   ("," =>|+1 TypeParameter)* [","]
    ">"
 ;
 
 TypeParameter :
    TypeParameterModifiers
-   NLs
    <IDENTIFIER>
-   [NLs ":" =>|| NLs Type]
+   [":" Type]
 ;
 
-TypeConstraints : 'where' NLs TypeConstraint (NLs "," =>|| NLs TypeConstraint)* ;
+TypeConstraints : 'where' NLs TypeConstraint (NLs "," =>|| TypeConstraint)* ;
 
-TypeConstraint : (Annotation)* <IDENTIFIER> NLs ":" NLs Type ;
+TypeConstraint : (Annotation)* <IDENTIFIER> NLs ":" Type ;
 
 TypeParameterModifiers# : ('reified' | "in" | 'out' | Annotation)* ;
 
@@ -848,7 +829,6 @@ ClassBody : "{" ClassMemberDeclarations NLs "}" ;
 
 EnumClassBody :
     "{"
-    NLs
     [EnumEntries]
     [NLs ";" =>|| NLs ClassMemberDeclarations]
     NLs
@@ -958,6 +938,8 @@ INJECT PARSER_CLASS : {
             }
             if (caller == "ParentheticalExpression"
                 || caller == "ValueArguments"
+                || caller == "ClassParameters"
+                || caller == "EnumEntries"
                 || caller == "ParenthesizedType"
                 || caller == "ParenthesizedUserType"
                 || caller == "FunctionTypeParameters"
@@ -966,15 +948,18 @@ INJECT PARSER_CLASS : {
                 || caller == "ContextParameters"
                 || caller == "MultiVariableDeclaration"
                 || caller == "DestructuringVariableDeclaration"
-//                || caller == "IfExpression"
-//                || caller == "WhileStatement"
-//                || caller == "DoWhileStatement"
+                || caller == "WhileStatement"
+                || caller == "DoWhileStatement"
+                || caller == "ForStatement"
                 || caller == "ClassParameters"
                 || caller == "FunctionValueParameters"
                 || caller == "WhenSubject"
                 || caller == "ParametersWithOptionalType"
                 || caller == "TypeParameters"
-                || caller == "CollectionLiteral")
+                || caller == "CollectionLiteral"
+                || caller == "TypeTest"
+                || caller == "RangeTest"
+                || caller == "AnonymousFunction")
             {
                 return true;
             }
@@ -991,20 +976,33 @@ INJECT PARSER_CLASS : {
 
     // If a newline is directly after one of these, it definitely should
     // be ignored.
-    static final EnumSet<TokenType> eatsNewLines = EnumSet.of(ADD,SUB,MOD,
-    MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,MULT_LINE_EXPRESSION_START,
-    LPAREN,LSQUARE,COMMA,DOT,ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,
-    WHEN,THROW,FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,WHILE);
+    static final EnumSet<TokenType> ignoreFollowingNewlines = EnumSet.of(
+      ADD,SUB,MOD,MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,
+      MULT_LINE_EXPRESSION_START,LPAREN,LSQUARE,COMMA,DOT,
+      ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR, WHEN,THROW,
+      FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,
+      WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
+      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ
+    );
+
+    static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
+      COLON
+    );
 
     BASE_TOKEN_CLASS TOKEN_HOOK(BASE_TOKEN_CLASS tok) {
       if (tok.getType() == NL && !tok.isUnparsed()) {
          BASE_TOKEN_CLASS previousToken = tok.getPrevious();
          if (previousToken != null) {
-            if (eatsNewLines.contains(previousToken.getType()))
+            if (ignoreFollowingNewlines.contains(previousToken.getType()))
             {
                tok.setUnparsed(true);
                return tok;
             }
+         }
+         BASE_TOKEN_CLASS nextToken = token_source.getNextToken(tok);
+         if (ignorePrecedingNewlines.contains(nextToken.getType())) {
+            tok.setUnparsed(true);
+            return tok;
          }
          if (canIgnoreNewlines()) {
             tok.setUnparsed(true);
@@ -1035,7 +1033,7 @@ CompanionObject :
     NLs
     "object"
     [NLs <IDENTIFIER> =>||]
-    [NLs ":" =>|| NLs DelegationSpecifiers]
+    [NLs ":" =>|| DelegationSpecifiers]
     [NLs =>|+1 ClassBody]
 ;
 
@@ -1043,7 +1041,7 @@ SecondaryConstructor :
    [Modifiers]
    'constructor' =>||
    FunctionValueParameters
-   [NLs ":" =>|| NLs ConstructorDelegationCall]
+   [NLs ":" =>|| ConstructorDelegationCall]
    NLs
    [Block]
 ;
@@ -1054,17 +1052,16 @@ FunctionValueParameters :
    "("
    [
       FunctionValueParameter
-      (NLs "," =>|+1 FunctionValueParameter)*
-      [NLs "," =>||]
+      ("," =>|+1 FunctionValueParameter)*
+      [","]
    ]
-   NLs
    ")"
 ;
 
 FunctionValueParameter :
     [ParameterModifiers]
     Parameter
-    [NLs "=" =>|| NLs Expression]
+    ["=" Expression]
 ;
 
 ParameterModifiers :
@@ -1076,18 +1073,18 @@ ParameterModifier#void : 'vararg' | 'noinline' | 'crossinline' ;
 FunctionValueParameterWithOptionalType :
    [ParameterModifiers]
    ParameterWithOptionalType
-   [NLs "=" =>|| NLs Expression]
+   ["=" Expression]
 ;
 
-ParameterWithOptionalType : <IDENTIFIER> NLs [":" NLs Type] ;
+ParameterWithOptionalType : <IDENTIFIER> [":" Type] ;
 
-EnumEntries : EnumEntry =>|| (NLs "," =>|+1 EnumEntry)* NLs [","] ;
+EnumEntries : EnumEntry =>|| ("," =>|+1 EnumEntry)* [","] ;
 
 EnumEntry :
-   [Modifiers NLs]
+   [Modifiers]
    <IDENTIFIER>
-   [NLs =>|+1 ValueArguments]
-   [NLs =>|+1 ClassBody]
+   [ValueArguments]
+   [ClassBody]
 ;
 
 PrimaryExpression#interface :
@@ -1148,7 +1145,7 @@ ObjectLiteral# :
    ['data']
    NLs
    "object" =>||
-   [NLs ":" =>|| NLs DelegationSpecifiers NLs]
+   [NLs ":" =>|| DelegationSpecifiers NLs]
    [NLs =>|+1 ClassBody]
 ;
 
@@ -1157,9 +1154,7 @@ WhenExpression :
    [WhenSubject]
    NLs
    "{"
-   NLs
    (SCAN ~("}") => WhenEntry NLs)*
-   NLs
    "}"
 ;
 
@@ -1185,24 +1180,19 @@ WhenCondition:
    Expression
 ;
 
-TypeTest : IsOperator NLs Type ;
+TypeTest : IsOperator Type ;
 
-RangeTest : InOperator NLs Expression ;
+RangeTest : InOperator Expression ;
 
 WhenSubject :
     "("
        [
          (Annotation)*
-         NLs
          "val"
-         NLs
          VariableDeclaration
-         NLs
          "="
-         NLs
        ]
        Expression
-       NLs
     ")"
 ;
 
@@ -1224,35 +1214,28 @@ SuperExpression :
 
 AnonymousFunction :
    ['suspend']
-   NLs
    "fun"
-   [NLs Type NLs "." =>||]
-   NLs
+   [Type "." =>||]
    =>|+1
    ParametersWithOptionalType
-   [NLs ":" =>|| NLs Type]
-   [NLs =>|+1 TypeConstraints]
-   [NLs =>|+1 FunctionBody]
+   [":" Type]
+   [TypeConstraints]
+   [FunctionBody]
 ;
 
 ParametersWithOptionalType :
   "("
-  NLs
   [
    FunctionValueParameterWithOptionalType
-   (NLs "," NLs =>|+1 FunctionValueParameterWithOptionalType)*
-   [NLs "," =>|| NLs]
+   ("," =>|+1 FunctionValueParameterWithOptionalType)*
+   [","]
   ]
-  NLs
   ")"
 ;
 
 IfExpression :
    "if"
-   "("
-   Expression
-   NLs
-   ")"
+   "(" Expression NLs ")"
    NLs
    (ControlStructureBody | ";")
    [
@@ -1269,15 +1252,15 @@ CollectionLiteral :
    "["
    [
         Expression
-        (NLs "," =>|+1 Expression)*
-        [NLs "," =>||]
+        ("," =>|+1 Expression)*
+        [","]
    ]
    "]"
 ;
 
 TryExpression :
     {boolean hasCatch = false, hasFinally = false;}
-    "try" NLs Block
+    "try" Block
     (NLs =>|+1 CatchBlock {hasCatch = true;})*
     [NLs =>|+1 FinallyBlock {hasFinally = true;}]
     ASSERT {hasCatch | hasFinally : "There must be at least one catch or finally block."}
