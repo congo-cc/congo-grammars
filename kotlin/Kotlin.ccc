@@ -162,7 +162,7 @@ TypeModifiers :
 ParenthesizedType : "(" Type ")" ;
 
 FunctionType :
-   [ReceiverType NLs "." =>|| NLs]
+   [ReceiverType "." =>|| ]
    FunctionTypeParameters
    "->"
    =>||
@@ -298,6 +298,7 @@ Comparison :
 GenericCallLikeComparison :
     InfixOperation
     (
+
       ENSURE ("{")
       ENSURE {!isInExplicitDelegateAndNotParenthesized()}
       CallSuffix
@@ -376,7 +377,7 @@ Label :
 PostfixUnarySuffixLA#scan :
    "++" | "--" | "!"|"["|"::" | "("
    |
-   NLs "." =>||
+   "."
    |
    NLs "?" "."
    ENSURE {getToken(-1).getEndOffset() == getToken(0).getBeginOffset()}
@@ -415,9 +416,8 @@ NavigationSuffix#void :
 
 IndexingSuffix#void :
     "["
-    NLs
     Expression
-    ("," NLs =>|+1 Expression)* [","]
+    ("," =>|+1 Expression)* [","]
     "]"
 ;
 
@@ -642,7 +642,7 @@ FunctionDeclaration :
    [Modifiers]
    "fun" // =>||
    [NLs =>|+1 TypeParameters]
-   [NLs ReceiverType NLs "." =>||]
+   [NLs ReceiverType "." =>||]
    NLs
    <IDENTIFIER>
    =>||
@@ -709,7 +709,7 @@ PropertyDeclaration :
   ("val"|"var")
   =>||
   [NLs =>|+1 TypeParameters]
-  [NLs ReceiverType NLs "." =>||]
+  [NLs ReceiverType "." =>||]
   (NLs (MultiVariableDeclaration | VariableDeclaration |"_"))
   [NLs =>|+1 TypeConstraints]
   [
@@ -893,7 +893,7 @@ INJECT PARSER_CLASS : {
     private Iterator<String> stackIteratorIncludingCurrent() {
          final Iterator<NonTerminalCall> nestedStack = stackIteratorBackward();
          return new Iterator<String>() {
-            boolean atStart = currentLookaheadToken == null;
+            boolean atStart = currentLookaheadToken==null;
             public boolean hasNext() {
                return nestedStack.hasNext();
             }
@@ -951,27 +951,20 @@ INJECT PARSER_CLASS : {
         return false;
     }
 
-    String getCurrentProduction() {
-      return currentlyParsedProduction;
-    }
-    String getCurrentLookaheadProduction() {
-      return currentLookaheadProduction;
-    }
-
     // If a newline is directly after one of these, it definitely should
     // be ignored.
     static final EnumSet<TokenType> ignoreFollowingNewlines = EnumSet.of(
       ADD,SUB,MOD,MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,
-      MULT_LINE_EXPRESSION_START,LPAREN,LSQUARE,COMMA,DOT,
+      MULT_LINE_EXPRESSION_START,LSQUARE,COMMA,DOT,
       ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR, WHEN,THROW,
       FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
-      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ
+      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN,ASSIGN
     );
 
     // Ignore the newlines preceding these token types
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
-      COLON,COMMA,RPAREN,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,ARROW
+      COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,ARROW,RPAREN,DOT
     );
 
     private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
