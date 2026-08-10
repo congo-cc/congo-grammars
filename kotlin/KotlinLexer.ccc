@@ -5,17 +5,6 @@ TOKEN :
    <SHEBANG : "#!" (~["\n"])* >
    |
    <NL : "\n" | "\r\n" > #Newline
-/*
-   {
-      if (parser.tokenType(0) == ADD || parser.tokenType(0) == SUB) {
-         matchedToken.setUnparsed(true);
-      }
-   }
-   {
-       if (parser.canIgnoreNewlines()) {
-          matchedToken.setUnparsed(true);
-       }
-   }*/
 ;
 
 SKIP :
@@ -29,50 +18,6 @@ UNPARSED #Comment :
 INJECT LEXER_CLASS :
 {
     private int commentStart, commentNesting;
-
-    private enum Delimiter {
-      SQUARE, PAREN, CURL, ANGLE;
-    }
-
-    private ArrayList<Delimiter> delimiterStack = new ArrayList<>();
-
-    private BASE_TOKEN_CLASS TOKEN_HOOK(BASE_TOKEN_CLASS tok) {
-      if (tok.getType() == NL) {
-//         System.out.println("KILROY2");
-      }
-      return tok;
-    }
-
-    private BASE_TOKEN_CLASS FUCK_HOOK(BASE_TOKEN_CLASS tok) {
-      switch (tok.getType()) {
-         case LPAREN : delimiterStack.add(Delimiter.PAREN); break;
-         case LSQUARE : delimiterStack.add(Delimiter.SQUARE); break;
-         case LCURL : delimiterStack.add(Delimiter.CURL); break;
-         case LANGLE : if (parser.getCurrentProduction() != "ComparisonOperator") {
-                           delimiterStack.add(Delimiter.ANGLE);
-                           System.out.println("KILROY2: " + tok.getLocation());
-                           System.out.println("KILROY: " + parser.getCurrentProduction());
-                           System.out.println("KILROY: " + parser.getCurrentLookaheadProduction());
-                       } else {
-                        System.out.println("KILROY3: " + tok.getLocation());
-                       }
-                       break;
-         case RANGLE : System.out.println("KILROY4: " + tok.getLocation());
-         case RPAREN :
-         case RSQUARE :
-         case RCURL : if (delimiterStack.isEmpty()) System.out.println("KILROY: " + tok.getLocation());
-              else delimiterStack.remove(delimiterStack.size()-1);
-      }
-      if (tok.getType() == NL && !delimiterStack.isEmpty()) {
-         switch(delimiterStack.get(delimiterStack.size()-1)) {
-            case SQUARE :
-            case PAREN :
-            case ANGLE : tok.setUnparsed(true);
-            case CURL : tok.setUnparsed(false);
-         }
-      }
-      return tok;
-    }
 }
 
 MORE:
