@@ -108,8 +108,7 @@ ValueArgument :
 TypeArguments :
    "<"
    TypeProjection
-   ("," =>|+1 TypeProjection)*
-   [","]
+   ("," =>|+1 TypeProjection)* [","]
    NLs // Why is this necessary? REVISIT.
    ">"
 ;
@@ -205,8 +204,7 @@ ParenthesizedUserType :
 FunctionTypeParameters :
     "("
     [Parameter|Type]
-    ("," =>|+1 (Parameter | Type))*
-    [","]
+    ("," =>|+1 (Parameter | Type))* [","]
     ")"
 ;
 
@@ -326,7 +324,7 @@ InfixOperation :
 
 ElvisExpression :
     InfixFunctionCall
-    (NLs "?:" =>|| InfixFunctionCall)*
+    ("?:" InfixFunctionCall)*
 ;
 
 InfixFunctionCall :
@@ -422,8 +420,7 @@ IndexingSuffix#void :
     "["
     NLs
     Expression
-    (NLs "," NLs =>|+1 Expression)*
-    [NLs "," =>||]
+    ("," NLs =>|+1 Expression)* [","]
     NLs
     "]"
 ;
@@ -475,7 +472,7 @@ LambdaLiteral :
 ;
 
 LambdaParameters :
-   LambdaParameter (NLs "," =>|+1 LambdaParameter)* [NLs "," =>||]
+   LambdaParameter ("," =>|+1 LambdaParameter)* [","]
 ;
 
 LambdaParameter :
@@ -496,7 +493,6 @@ MultiVariableDeclaration :
       VariableDeclaration
     )
     (
-      NLs
       ","
       =>|+1
       (
@@ -505,7 +501,7 @@ MultiVariableDeclaration :
          VariableDeclaration
       )
     )*
-    [NLs "," =>||]
+    [","]
     NLs
     ")"
 ;
@@ -514,7 +510,7 @@ DestructuringVariableDeclaration :
     "["
     DestructuringEntry
     ("," =>|+1 DestructuringEntry)*
-    ["," ]
+    [","]
     "]"
 ;
 
@@ -702,7 +698,7 @@ ClassParameters :
     "("
     [
         ClassParameter
-        (NLs "," =>|+1 ClassParameter)* [NLs "," =>||]
+        ("," =>|+1 ClassParameter)* [","]
     ]
     NLs
     ")"
@@ -777,7 +773,7 @@ SetterLA#scan :
    (
       "_"
       |
-      FunctionValueParameterWithOptionalType [NLs "," =>||]
+      FunctionValueParameterWithOptionalType [","]
    )
    NLs
    ")"
@@ -796,7 +792,7 @@ Setter :
       (
          "_"
          |
-         FunctionValueParameterWithOptionalType [NLs "," =>||]
+         FunctionValueParameterWithOptionalType [","]
       )
       NLs
       ")"
@@ -819,9 +815,9 @@ TypeParameter :
    [":" Type]
 ;
 
-TypeConstraints : 'where' NLs TypeConstraint (NLs "," =>|| TypeConstraint)* ;
+TypeConstraints : 'where' NLs TypeConstraint ("," TypeConstraint)* ;
 
-TypeConstraint : (Annotation)* <IDENTIFIER> NLs ":" Type ;
+TypeConstraint : (Annotation)* <IDENTIFIER> ":" Type ;
 
 TypeParameterModifiers# : ('reified' | "in" | 'out' | Annotation)* ;
 
@@ -859,7 +855,7 @@ AssignmentOperator#void : "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
 
 DelegationSpecifiers :
     AnnotatedDelegationSpecifier
-    (NLs "," =>|| NLs AnnotatedDelegationSpecifier)*
+    ("," =>|| NLs AnnotatedDelegationSpecifier)*
 ;
 
 AnnotatedDelegationSpecifier : (Annotation)* NLs DelegationSpecifier ;
@@ -986,8 +982,16 @@ INJECT PARSER_CLASS : {
     );
 
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
-      COLON
+      COLON,COMMA,ELVIS
     );
+
+    private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
+      while (true) {
+         tok = token_source.getNextToken(tok);
+         if (!tok.isUnparsed() && tok.getType() != NL) break;
+      }
+      return tok.getType();
+    }
 
     BASE_TOKEN_CLASS TOKEN_HOOK(BASE_TOKEN_CLASS tok) {
       if (tok.getType() == NL && !tok.isUnparsed()) {
@@ -999,8 +1003,7 @@ INJECT PARSER_CLASS : {
                return tok;
             }
          }
-         BASE_TOKEN_CLASS nextToken = token_source.getNextToken(tok);
-         if (ignorePrecedingNewlines.contains(nextToken.getType())) {
+         if (ignorePrecedingNewlines.contains(nextNonNewlineType(tok))) {
             tok.setUnparsed(true);
             return tok;
          }
@@ -1052,8 +1055,7 @@ FunctionValueParameters :
    "("
    [
       FunctionValueParameter
-      ("," =>|+1 FunctionValueParameter)*
-      [","]
+      ("," =>|+1 FunctionValueParameter)* [","]
    ]
    ")"
 ;
@@ -1165,8 +1167,7 @@ WhenEntry :
       ASSERT {getTokenType(1) != COMMA :
              "Cannot have a guard condition in a comma-separated When entry"}
    ]
-   (NLs "," =>|+1 WhenCondition)*
-   [NLs "," =>||]
+   ("," =>|+1 WhenCondition)* [","]
    NLs "->" NLs ControlStructureBody [Semis]
    |
    "else" NLs "->" NLs ControlStructureBody [Semis]
@@ -1274,7 +1275,7 @@ CatchBlock :
    ("_"|<IDENTIFIER>)
    ":"
    Type
-   [NLs "," =>||]
+   [","]
    ")"
    NLs
    Block
