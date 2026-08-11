@@ -381,7 +381,7 @@ PostfixUnarySuffixLA#scan :
    [Label]
    "{"
    |
-   //REVISIT
+   // REVISIT
    TypeArguments
 ;
 
@@ -807,7 +807,6 @@ Assignment :
     lhs=Expression
     [
        AssignmentOperator {isSimpleAssign = getTokenType(0) == ASSIGN;}
-       NLs
        Expression
        ASSERT {!isSimpleAssign || lhs.canBeAssignedTo(),
                lhs :
@@ -823,7 +822,7 @@ AssignmentOperator#void : "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
 
 DelegationSpecifiers :
     AnnotatedDelegationSpecifier
-    ("," =>|| NLs AnnotatedDelegationSpecifier)*
+    ("," NLs AnnotatedDelegationSpecifier)*
 ;
 
 AnnotatedDelegationSpecifier : (Annotation)* NLs DelegationSpecifier ;
@@ -875,8 +874,7 @@ INJECT PARSER_CLASS : {
             }
             if (caller == "Statement"
                 || caller == "WhenExpression"
-                || caller == "ClassBody"
-                || caller == "EnumClassBody")
+                || caller == "ClassBody")
             {
                return false;
             }
@@ -892,8 +890,8 @@ INJECT PARSER_CLASS : {
       ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,WHEN,WHERE,THROW,
       FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
-      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN,ASSIGN,
-      COLON_COLON,QUEST,AMP
+      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN, COLON_COLON,QUEST,AMP,
+      ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,MULT_ASSIGNMENT
     );
 
     // Ignore the newlines preceding these token types
@@ -1060,7 +1058,7 @@ CallableReference :
 ObjectLiteral# :
    ['data']
    "object" =>||
-   [":" =>|| DelegationSpecifiers]
+   [":" DelegationSpecifiers]
    [ClassBody]
 ;
 
