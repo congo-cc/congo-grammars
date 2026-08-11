@@ -79,6 +79,8 @@ TOKEN #Operator :
    |
    <DECR : "--">
    |
+   <AMP : "&" >
+   |
    <CONJ : "&&">
    |
    <DISJ : "||">

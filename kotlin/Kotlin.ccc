@@ -184,9 +184,7 @@ TypeReference : 'dynamic' | UserType ;
 DefinitelyNonNullableType :
    [TypeModifiers]
    (UserType | ParenthesizedUserType)
-   NLs
    "&" =>||
-   NLs
    [TypeModifiers]
    (UserType | ParenthesizedUserType)
 ;
@@ -405,7 +403,7 @@ PostfixUnarySuffix#void :
 PostfixUnaryOperator#void : "++" | "--" | "!" ;
 
 NavigationSuffix#void :
-    MemberAccessOperator =>||
+    MemberAccessOperator
     (<IDENTIFIER> | ParenthesizedExpression | "class")
 ;
 
@@ -433,13 +431,11 @@ CallSuffix#void :
 ;
 
 MemberAccessOperator :
-   (
-      "."
-      |
-      "::"
-      |
-      "?" "."
-   )
+   "."
+   |
+   "::"
+   |
+   "?" "."
 ;
 
 AnnotatedLambda : (Annotation)* [Label] NLs =>|+1 LambdaLiteral ;
@@ -762,17 +758,14 @@ Setter :
    [Modifiers]
    'set'
    [
-      NLs
-      "(" =>||
-      NLs
+      "("
       (
          "_"
          |
          FunctionValueParameterWithOptionalType [","]
       )
       ")"
-      [NLs ":" =>|| Type]
-      NLs
+      [":" Type]
       FunctionBody
    ]
 ;
@@ -790,7 +783,7 @@ TypeParameter :
    [":" Type]
 ;
 
-TypeConstraints : 'where' NLs TypeConstraint ("," TypeConstraint)* ;
+TypeConstraints : 'where' TypeConstraint ("," TypeConstraint)* ;
 
 TypeConstraint : (Annotation)* <IDENTIFIER> ":" Type ;
 
@@ -801,7 +794,7 @@ ClassBody : "{" ClassMemberDeclarations NLs "}" ;
 EnumClassBody :
     "{"
     [EnumEntries]
-    [NLs ";" =>|| NLs ClassMemberDeclarations]
+    [NLs ";" =>|| ClassMemberDeclarations]
     NLs
     "}"
 ;
@@ -899,13 +892,14 @@ INJECT PARSER_CLASS : {
       ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,WHEN,WHERE,THROW,
       FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
-      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN,ASSIGN,COLON_COLON,QUEST
+      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN,ASSIGN,
+      COLON_COLON,QUEST,AMP
     );
 
     // Ignore the newlines preceding these token types
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
       COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,
-      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,
+      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,AMP,
       BY
     );
 
