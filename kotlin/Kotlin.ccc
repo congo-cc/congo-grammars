@@ -539,6 +539,7 @@ ForStatement :
    "in"
    Expression
    ")"
+   NLs
    [ControlStructureBody]
 ;
 
@@ -547,6 +548,7 @@ WhileStatement :
     "("
     Expression
     ")"
+    NLs
     (ControlStructureBody | ";")
 ;
 
@@ -626,26 +628,24 @@ ClassDeclaration :
 ObjectDeclaration :
     [Modifiers]
     "object"
-    NLs
     <IDENTIFIER> =>||
-    [NLs ":" =>|| DelegationSpecifiers]
-    [NLs =>|+1 ClassBody]
+    [":" DelegationSpecifiers]
+    [ClassBody]
 ;
 
 FunctionDeclaration :
    [ContextParameters NLs] // Very bleeding edge
    [Modifiers]
-   "fun" // =>||
-   [NLs =>|+1 TypeParameters]
-   [NLs ReceiverType "." =>||]
-   NLs
+   "fun"
+   [TypeParameters]
+   [ReceiverType "." =>||]
    <IDENTIFIER>
    =>||
    NLs
    FunctionValueParameters
    [":" Type]
-   [NLs =>|+1 TypeConstraints]
-   [NLs =>|+1 FunctionBody]
+   [TypeConstraints]
+   [FunctionBody]
 ;
 
 FunctionBody : Block | "=" Expression ;
@@ -671,8 +671,7 @@ Modifier#void :
 TypeAlias :
    [Modifiers] "typealias" =>||
    <IDENTIFIER>
-   [NLs =>|+1 TypeParameters]
-   NLs
+   [TypeParameters]
    "="
    Type
 ;
@@ -691,11 +690,10 @@ ClassParameters :
 ClassParameter :
    [Modifiers]
    ["val"|"var"]
-   NLs
    <IDENTIFIER>
    ":"
    Type
-   [NLs "=" =>|| NLs Expression]
+   ["=" Expression]
 ;
 
 PropertyDeclaration :
@@ -871,77 +869,31 @@ INJECT PARSER_CLASS : {
             // NB. These strings are interned so we can just
             // use identity comparison.
             String caller = it.next().productionName;
-            if (caller == "ExplicitDelegation")
-            {
+            if (caller == "ExplicitDelegation") {
                return true;
             }
-            if (caller == "ParentheticalExpression"
-                || caller == "ValueArguments")
-            {
+            if (caller == "ValueArguments") {
                 return false;
             }
         }
         return false;
     }
 
-    private Iterator<String> stackIteratorIncludingCurrent() {
-         final Iterator<NonTerminalCall> nestedStack = stackIteratorBackward();
-         return new Iterator<String>() {
-            boolean atStart = currentLookaheadToken==null;
-            public boolean hasNext() {
-               return nestedStack.hasNext();
-            }
-            public String next() {
-               if (atStart) {
-                  atStart = false;
-                  return currentlyParsedProduction;
-               }
-               return nestedStack.next().productionName;
-            }
-         };
-    }
-
     boolean canIgnoreNewlines() {
-        Iterator<String> it = stackIteratorIncludingCurrent();
+        Iterator<NonTerminalCall> it = stackIteratorBackward();
         while (it.hasNext()) {
-            String caller = it.next();
+            String caller = it.next().productionName;
+            if (caller == "ValueArguments") {
+                return true;
+            }
             if (caller == "Statement"
-                || caller == "Block"
-                || caller == "LambdaLiteral"
+                || caller == "WhenExpression"
                 || caller == "ClassBody"
-                || caller == "EnumClassBody"
-                || caller == "WhenExpression")
+                || caller == "EnumClassBody")
             {
                return false;
             }
-            if (caller == "ParentheticalExpression"
-                || caller == "ValueArguments"
-                || caller == "ClassParameters"
-                || caller == "EnumEntries"
-                || caller == "ParenthesizedType"
-                || caller == "ParenthesizedUserType"
-                || caller == "FunctionTypeParameters"
-                || caller == "LineStrExpression"
-                || caller == "MultilineInterpolation"
-                || caller == "ContextParameters"
-                || caller == "MultiVariableDeclaration"
-                || caller == "DestructuringVariableDeclaration"
-                || caller == "WhileStatement"
-                || caller == "DoWhileStatement"
-                || caller == "ForStatement"
-                || caller == "ClassParameters"
-                || caller == "FunctionValueParameters"
-                || caller == "WhenSubject"
-                || caller == "ParametersWithOptionalType"
-                || caller == "TypeParameters"
-                || caller == "CollectionLiteral"
-                || caller == "TypeTest"
-                || caller == "RangeTest"
-                || caller == "AnonymousFunction")
-            {
-                return true;
-            }
-        }
+          }
         return false;
     }
 
@@ -953,13 +905,13 @@ INJECT PARSER_CLASS : {
       ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR, WHEN,THROW,
       FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
-      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN,ASSIGN
+      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN,ASSIGN,COLON_COLON,QUEST
     );
 
     // Ignore the newlines preceding these token types
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
       COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,
-      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST
+      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON
     );
 
     private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
@@ -1115,16 +1067,14 @@ LiteralConstant#void :
 CallableReference :
    [([TypeModifiers] NullableType) #ReceiverType]
    "::" =>||
-   NLs
    (<IDENTIFIER> | "class")
 ;
 
 ObjectLiteral# :
    ['data']
-   NLs
    "object" =>||
-   [":" =>|| DelegationSpecifiers NLs]
-   [NLs =>|+1 ClassBody]
+   [":" =>|| DelegationSpecifiers]
+   [ClassBody]
 ;
 
 WhenExpression :
