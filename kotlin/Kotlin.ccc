@@ -472,7 +472,7 @@ LambdaParameter :
    "_" [":" =>|| Type]
 ;
 
-VariableDeclaration : (Annotation)* NLs <IDENTIFIER> [":" Type] ;
+VariableDeclaration : (Annotation)* <IDENTIFIER> =>|| [":" Type] ;
 
 MultiVariableDeclaration :
     "("
@@ -613,7 +613,7 @@ ClassDeclaration :
       =>||
       PrimaryConstructor
    ]
-   [NLs ":" =>|| DelegationSpecifiers]
+   [":" =>|| DelegationSpecifiers]
    [NLs =>|+1 TypeConstraints]
    [
       SCAN (NLs "{") =>
@@ -700,10 +700,10 @@ PropertyDeclaration :
   [Modifiers]
   ("val"|"var")
   =>||
-  [NLs =>|+1 TypeParameters]
-  [NLs ReceiverType "." =>||]
-  (NLs (MultiVariableDeclaration | VariableDeclaration |"_"))
-  [NLs =>|+1 TypeConstraints]
+  [TypeParameters]
+  [ReceiverType "." =>||]
+  (MultiVariableDeclaration | VariableDeclaration |"_")
+  [TypeConstraints]
   [
    NLs =>|+1
    (
@@ -731,11 +731,9 @@ Getter :
    'get'
    =>||
    [
-      NLs
-      "(" =>||
+      "(" =>|| // Why is this up-to-here necessary? REVISIT
       ")"
       [":" =>|| Type]
-      NLs
       FunctionBody
    ]
 ;
@@ -745,20 +743,17 @@ Getter :
 // parameter
 SetterLA#scan :
    [Modifiers]
-   'set' ENSURE ~(NLs "(") =>||
+   'set' ENSURE ~("(") =>||
    |
    [Modifiers]
    'set'
-   NLs
    "("
-   NLs
    (
       "_"
       |
       FunctionValueParameterWithOptionalType [","]
    )
    ")"
-   NLs
    ("{" | "=")
 ;
 
@@ -852,13 +847,12 @@ DelegationSpecifier :
    'suspend' NLs FunctionType
 ;
 
-PropertyDelegate : 'by' NLs Expression ;
+PropertyDelegate : 'by' Expression ;
 
 ExplicitDelegation :
    (UserType | FunctionType)
    NLs
    'by' =>||
-   NLs
    Expression
 ;
 
@@ -902,7 +896,7 @@ INJECT PARSER_CLASS : {
     static final EnumSet<TokenType> ignoreFollowingNewlines = EnumSet.of(
       ADD,SUB,MOD,MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,
       MULT_LINE_EXPRESSION_START,LSQUARE,COMMA,DOT,
-      ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR, WHEN,THROW,
+      ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,WHEN,WHERE,THROW,
       FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
       EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN,ASSIGN,COLON_COLON,QUEST
@@ -911,7 +905,8 @@ INJECT PARSER_CLASS : {
     // Ignore the newlines preceding these token types
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
       COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,
-      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON
+      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,
+      BY
     );
 
     private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
@@ -961,11 +956,10 @@ CompanionObject :
     [Modifiers]
     'companion' =>||
     ['data']
-    NLs
     "object"
-    [NLs <IDENTIFIER> =>||]
+    [<IDENTIFIER>]
     [":" =>|| DelegationSpecifiers]
-    [NLs =>|+1 ClassBody]
+    [ClassBody]
 ;
 
 SecondaryConstructor :
@@ -973,11 +967,10 @@ SecondaryConstructor :
    'constructor' =>||
    FunctionValueParameters
    [":" ConstructorDelegationCall]
-   NLs
    [Block]
 ;
 
-ConstructorDelegationCall : ("this"|"super") NLs ValueArguments ;
+ConstructorDelegationCall : ("this"|"super") ValueArguments ;
 
 FunctionValueParameters :
    "("
@@ -1080,9 +1073,8 @@ ObjectLiteral# :
 WhenExpression :
    "when"
    [WhenSubject]
-   NLs
    "{"
-   (SCAN ~("}") => WhenEntry NLs)*
+   (SCAN ~("}") => WhenEntry)*
    "}"
 ;
 
@@ -1195,7 +1187,6 @@ TryExpression :
 
 CatchBlock :
    'catch'
-   NLs
    "("
    (Annotation)*
    ("_"|<IDENTIFIER>)
@@ -1203,7 +1194,6 @@ CatchBlock :
    Type
    [","]
    ")"
-   NLs
    Block
 ;
 
