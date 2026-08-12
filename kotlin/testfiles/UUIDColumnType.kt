@@ -11,7 +11,7 @@ import java.util.UUID
  */
 class UUIDColumnType : BasicUuidColumnType<UUID>() {
     override fun valueFromDB(value: Any): UUID = when (value) {
-        is UUID -> value
+        is UUID -> values
         is ByteArray -> ByteBuffer.wrap(value).let { b -> UUID(b.long, b.long) }
         is String if value.isHexAndDashFormat() -> UUID.fromString(value)
         is String -> ByteBuffer.wrap(value.toByteArray()).let { b -> UUID(b.long, b.long) }

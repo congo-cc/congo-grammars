@@ -212,6 +212,8 @@ ContextParameters :
   ")"
 ;
 
+ConditionExpression#void : "(" Expression ")" ;
+
 #Expression#interface :
    Disjunction
    {return (Expression) peekNode();}
@@ -394,7 +396,7 @@ PostfixUnarySuffix#void :
     |
     (CallSuffix) #CallExpression(+1)
     |
-    TypeArguments #ExpressionWithTypeArgumnents(2)
+    TypeArguments #ExpressionWithTypeArguments(2)
     |
     (IndexingSuffix) #IndexExpression(+1)
   )
@@ -541,9 +543,7 @@ ForStatement :
 
 WhileStatement :
     "while"
-    "("
-    Expression
-    ")"
+    ConditionExpression
     NLs
     (ControlStructureBody | ";")
 ;
@@ -552,9 +552,7 @@ DoWhileStatement :
    "do"
    [ControlStructureBody]
    "while"
-   "("
-   Expression
-   ")"
+   ConditionExpression
 ;
 
 ControlStructureBody#void :
@@ -789,12 +787,15 @@ TypeConstraint : (Annotation)* <IDENTIFIER> ":" Type ;
 
 TypeParameterModifiers# : ('reified' | "in" | 'out' | Annotation)* ;
 
-ClassBody : "{" ClassMemberDeclarations NLs "}" ;
+ClassBody : "{" ClassMemberDeclarations "}" ;
 
 EnumClassBody :
     "{"
     [EnumEntries]
-    [NLs ";" =>|| ClassMemberDeclarations]
+    [
+      NLs ";" =>||
+      ClassMemberDeclarations
+    ]
     NLs
     "}"
 ;
@@ -825,7 +826,7 @@ DelegationSpecifiers :
     ("," NLs AnnotatedDelegationSpecifier)*
 ;
 
-AnnotatedDelegationSpecifier : (Annotation)* NLs DelegationSpecifier ;
+AnnotatedDelegationSpecifier : (Annotation)* DelegationSpecifier ;
 
 DelegationSpecifier :
    ConstructorInvocation
@@ -869,12 +870,14 @@ INJECT PARSER_CLASS : {
         Iterator<NonTerminalCall> it = stackIteratorBackward();
         while (it.hasNext()) {
             String caller = it.next().productionName;
-            if (caller == "ValueArguments") {
+            if (caller == "ValueArguments"
+                || caller == "ConditionExpression")
+            {
                 return true;
             }
             if (caller == "Statement"
                 || caller == "WhenExpression"
-                || caller == "ClassBody")
+                || caller == "ClassMemberDeclaration")
             {
                return false;
             }
@@ -891,7 +894,8 @@ INJECT PARSER_CLASS : {
       FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
       EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN, COLON_COLON,QUEST,AMP,
-      ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,MULT_ASSIGNMENT
+      ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,MULT_ASSIGNMENT,
+      ELSE,BY
     );
 
     // Ignore the newlines preceding these token types
@@ -1146,7 +1150,7 @@ ParametersWithOptionalType :
 
 IfExpression :
    "if"
-   "(" Expression ")"
+   ConditionExpression
    NLs
    (ControlStructureBody | ";")
    [
@@ -1154,7 +1158,6 @@ IfExpression :
       "else"
       ENSURE ~("->")
       =>||
-      NLs
       (ControlStructureBody | ";")
    ]
 ;

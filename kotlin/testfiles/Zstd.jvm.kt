@@ -23,7 +23,9 @@ import kotlin.coroutines.CoroutineContext
  */
 public actual class ZstdEncoder(
     compressionLevel: Int = DEFAULT_COMPRESSION_LEVEL
-) : ContentEncoder, Encoder by Zstd(compressionLevel) {
+) : ContentEncoder, Encoder
+by
+Zstd(compressionLevel) {
     public companion object {
         public const val DEFAULT_COMPRESSION_LEVEL: Int = 3
     }
