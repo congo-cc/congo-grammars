@@ -214,10 +214,7 @@ ContextParameters :
 
 ConditionExpression#void : "(" Expression ")" ;
 
-#Expression#interface :
-   Disjunction
-   {return (Expression) peekNode();}
-;
+Expression#interface : Conjunction ("||" Conjunction)* ;
 
 INJECT Expression :
 {
@@ -283,7 +280,6 @@ INJECT CollectionLiteral : implements PrimaryExpression
 INJECT AnonymousFunction : implements PrimaryExpression
 INJECT ThisExpression : implements PrimaryExpression
 
-Disjunction : Conjunction ("||" Conjunction)* ;
 
 Conjunction : Equality ("&&" Equality)* ;
 
@@ -871,7 +867,8 @@ INJECT PARSER_CLASS : {
         while (it.hasNext()) {
             String caller = it.next().productionName;
             if (caller == "ValueArguments"
-                || caller == "ConditionExpression")
+                || caller == "ConditionExpression"
+                )
             {
                 return true;
             }
@@ -891,18 +888,17 @@ INJECT PARSER_CLASS : {
       ADD,SUB,MOD,MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,
       MULT_LINE_EXPRESSION_START,LSQUARE,COMMA,DOT,
       ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,WHEN,WHERE,THROW,
-      FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FOR,DO,
+      FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
       EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN, COLON_COLON,QUEST,AMP,
-      ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,MULT_ASSIGNMENT,
-      ELSE,BY
+      ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,
+      MULT_ASSIGNMENT,ELSE,BY
     );
 
     // Ignore the newlines preceding these token types
     static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
       COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,
-      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,AMP,
-      BY
+      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,AMP
     );
 
     private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
