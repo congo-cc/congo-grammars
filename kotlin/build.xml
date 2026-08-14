@@ -5,11 +5,10 @@
       defined in the imported file. However, it needs
       the following properties to be defined.
     -->
+    <property name="lang.name" value="kotlin"/>
     <property name="test.harness" value="KParse"/>
     <property name="grammar.file" value="Kotlin.ccc"/>
-    <property name="java.parser.package" value="org.parsers.kotlin"/>
     <property name="java.parser.class" value="KotlinParser"/>
-    <property name="java.parser.generated" value="org/parsers/kotlin/KotlinParser.java"/>
     <property name="lang.extension" value=".kt"/>
     <property name="parser.root" value="KotlinFile"/>
 </project>
