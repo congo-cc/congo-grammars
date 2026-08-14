@@ -1,15 +1,16 @@
-<project name="Rust" default="compile-java">
-    <import file="../ant-common.xml" />
+<project name="Rust" default="compile">
     <!--
       The compile, build-parser etc targets are all
       defined in the imported file. However, it needs
       the following properties to be defined.
+      We also have the convention that the project name
+      is effectively the grammar's base name. If the
+      project name is Rust, we assume that the grammar
+      is Rust.ccc and generates RustParser in
+      org.parsers.rust
     -->
-    <property name="test.harness" value="RParse"/>
-    <property name="grammar.file" value="Rust.ccc"/>
-    <property name="java.parser.package" value="org.parsers.rust"/>
-    <property name="java.parser.class" value="RustParser"/>
-    <property name="java.parser.generated" value="org/parsers/rust/RustParser.java"/>
+    <property name="lang" value="rust"/>
     <property name="lang.extension" value=".rs"/>
     <property name="parser.root" value="Crate"/>
+    <import file="../ant-common.xml" />
 </project>

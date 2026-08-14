@@ -1,10 +1,65 @@
 <project>
     <!-- This file gets imported from the build.xml files in the
          subdirectories. -->
+
+    <property name = "grammar.file" value="${ant.project.name}.ccc"/>
+    <property name = "java.parser.package" value="org.parsers.${lang}"/>
+    <property name = "java.parser.class" value="${ant.project.name}Parser"/>
+    <property name = "java.parser.target" value="org/parsers/${lang}/${java.parser.class}.java"/>
+    <property name = "java.test.harness" value="${ant.project.name}Parse"/>
+    <property name = "python.output.directory" value="${lang}parser"/>
+    <property name = "python.parser.target" value="${python.output.directory}/parser.py"/>
+    <property name = "csharp.output.directory" value="cs-${lang}parser"/>
+    <property name = "csharp.parser.target" value="${csharp.output.directory}/Parser.cs"/>
+
     <target name="clean">
-        <delete file="${test.harness}.java"/>
-        <delete file="${test.harness}.class"/>
+        <delete file="${java.test.harness}.java" />
+        <delete file="${java.test.harness}.class" />
         <delete dir="org" />
+        <delete dir="${python.output.directory}" />
+        <delete dir="${csharp.output.directory}" />
+    </target>
+
+    <target name="rust-check">
+        <echo message="Checking if Rust is available..." />
+        <exec executable="rustc"
+            outputproperty="rustc.version.output"
+            resultproperty="rustc.version.result"
+            failonerror="false"
+            failifexecutionfails="false">
+            <arg value="--version" />
+        </exec>
+        <condition property="rust.available">
+            <matches string="${rustc.version.result}" pattern="0" />
+        </condition>
+    </target>
+
+    <target name="dotnet-check">
+        <echo message="Checking if Dotnet is available..." />
+        <exec executable="dotnet"
+            outputproperty="dotnet.version.output"
+            resultproperty="dotnet.version.result"
+            failonerror="false"
+            failifexecutionfails="false">
+            <arg value="--version" />
+        </exec>
+        <condition property="dotnet.available">
+            <matches string="${dotnet.version.result}" pattern="0" />
+        </condition>
+    </target>
+
+    <target name="python-check">
+        <echo message="Checking if Python3 is available..." />
+        <exec executable="python3"
+            outputproperty="python.version.output"
+            resultproperty="python.version.result"
+            failonerror="false"
+            failifexecutionfails="false">
+            <arg value="--version" />
+        </exec>
+        <condition property="python.available">
+            <matches string="${python.version.result}" pattern="0" />
+        </condition>
     </target>
 
     <target name="congo-init">
@@ -14,41 +69,55 @@
              repository.
         -->
         <available
-           property="congo.jar.location"
-           file="../congocc.jar"
-           value="../congocc.jar"
+            property="congo.jar.location"
+            file="../congocc.jar"
+            value="../congocc.jar"
         />
         <available
-           property="congo.jar.location"
-           file="../bin/congocc.jar"
-           value="../bin/congocc.jar"
+            property="congo.jar.location"
+            file="../bin/congocc.jar"
+            value="../bin/congocc.jar"
         />
         <available
-           property="congo.jar.location"
-           file="bin/congocc.jar"
-           value="bin/congocc.jar"
+            property="congo.jar.location"
+            file="bin/congocc.jar"
+            value="bin/congocc.jar"
         />
     </target>
 
     <target name="get-congo-jar" depends="congo-init" unless="congo.jar.location">
         <echo>Getting bootstrap jarfile...</echo>
         <exec executable="git" dir=".." failonerror="true">
-           <arg line="submodule update --init --recursive" />
+            <arg line="submodule update --init --recursive" />
         </exec>
         <exec executable="git" dir="../bin" failonerror="true">
-           <arg line="checkout congocc.jar" />
+            <arg line="checkout congocc.jar" />
         </exec>
         <property name="congo.jar.location" value="../bin/congocc.jar" />
     </target>
 
     <target name="check-java-parser-uptodate" depends="congo-init">
-        <uptodate property="java.parser.uptodate" targetfile="${java.parser.generated}">
+        <uptodate property="java.parser.uptodate"
+                  targetfile="${java.parser.target}">
             <srcfiles dir="." includes="*.ccc" />
         </uptodate>
     </target>
 
-    <target name="build-java-parser" depends="check-java-parser-uptodate,get-congo-jar" unless="java.parser.uptodate">
-        <echo>Generating the parser from ${grammar.file}...</echo>
+    <target name="check-csharp-parser-uptodate" depends="congo-init">
+        <uptodate property="csharp.parser.uptodate" targetfile="${csharp.target.parser}">
+            <srcfiles dir="." includes="*.ccc" />
+        </uptodate>
+    </target>
+
+    <target name="check-python-parser-uptodate" depends="congo-init">
+        <uptodate property="python.parser.uptodate" targetfile="${python.parser.target}">
+            <srcfiles dir="." includes="*.ccc" />
+        </uptodate>
+    </target>
+
+    <target name="build-java-parser" depends="check-java-parser-uptodate,get-congo-jar"
+        unless="java.parser.uptodate">
+        <echo>Generating the Java parser from ${grammar.file}...</echo>
         <java fork="true" jar="${congo.jar.location}" failonerror="true">
             <assertions>
                 <enable />
@@ -57,18 +126,41 @@
         </java>
     </target>
 
-    <target name="check-java-test-harness" unless="java.test.harness.present">
-        <available property="java.test.harness.present" file="${test.harness}.java"/>
+    <target name="build-python-parser" depends="check-python-parser-uptodate"
+        unless="python.parser.uptodate">
+        <echo>Generating the Python parser from ${grammar.file}...</echo>
+        <java fork="true" jar="${congo.jar.location}" failonerror="true">
+            <assertions>
+                <enable />
+            </assertions>
+            <arg line="-n -q -lang python ${grammar.file}" />
+        </java>
     </target>
 
-    <target name="generate-java-test-harness" depends="check-java-test-harness" unless="java.test.harness.present">
-        <copy file="../templates/JAVA_TEST_HARNESS" tofile="${test.harness}.java"/>
-        <replace file="${test.harness}.java">
-          <replacefilter token="PARSER_CLASS" value="${java.parser.class}"/>
-          <replacefilter token="PARSER_PACKAGE" value="${java.parser.package}"/>
-          <replacefilter token="LANG_EXTENSION" value="${lang.extension}"/>
-          <replacefilter token="THIS_CLASS" value="${test.harness}"/>
-          <replacefilter token="PARSER_ROOT" value="${parser.root}"/>
+    <target name="build-csharp-parser" depends="check-csharp-parser-uptodate"
+        unless="csharp.parser.uptodate">
+        <echo>Generating the CSharp parser from ${grammar.file}...</echo>
+        <java fork="true" jar="${congo.jar.location}" failonerror="true">
+            <assertions>
+                <enable />
+            </assertions>
+            <arg line="-n -q -lang csharp ${grammar.file}" />
+        </java>
+    </target>
+
+    <target name="check-java-test-harness" unless="java.test.harness.present">
+        <available property="java.test.harness.present" file="${java.test.harness}.java" />
+    </target>
+
+    <target name="generate-java-test-harness" depends="check-java-test-harness"
+        unless="java.test.harness.present">
+        <copy file="../templates/JAVA_TEST_HARNESS" tofile="${java.test.harness}.java" />
+        <replace file="${java.test.harness}.java">
+            <replacefilter token="PARSER_CLASS" value="${java.parser.class}" />
+            <replacefilter token="PARSER_PACKAGE" value="${java.parser.package}" />
+            <replacefilter token="LANG_EXTENSION" value="${lang.extension}" />
+            <replacefilter token="THIS_CLASS" value="${java.test.harness}" />
+            <replacefilter token="PARSER_ROOT" value="${parser.root}" />
         </replace>
     </target>
 
@@ -79,14 +171,14 @@
             optimize="off"
             failonerror="true"
             includeantruntime="false"
-            release="8"/>
-        <echo>Test harness is: java ${test.harness} directory_or_files</echo>
+            release="8" />
+        <echo>Test harness is: java ${java.test.harness} directory_or_files</echo>
     </target>
 
     <target name="test-java" depends="compile-java">
         <java fork="true"
-              failonerror="true"
-              classname="${test.harness}" >
+            failonerror="true"
+            classname="${java.test.harness}">
             <assertions>
                 <enable />
             </assertions>
@@ -94,5 +186,8 @@
         </java>
     </target>
 
-    <target name="test" depends="test-java"/>
+    <!-- For now, we'll just run test-java if
+     somebody says 'ant test' and so on-->
+    <target name="test" depends="test-java" />
+    <target name="compile" depends="compile-java" />
 </project>
