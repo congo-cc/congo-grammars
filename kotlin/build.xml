@@ -7,9 +7,9 @@
     -->
     <property name="test.harness" value="KParse"/>
     <property name="grammar.file" value="Kotlin.ccc"/>
-    <property name="parser.generated.source" value="org/parsers/kotlin/KotlinParser.java"/>
-    <property name="parser.package" value="org.parsers.kotlin"/>
-    <property name="parser.class" value="KotlinParser"/>
+    <property name="java.parser.package" value="org.parsers.kotlin"/>
+    <property name="java.parser.class" value="KotlinParser"/>
+    <property name="java.parser.generated" value="org/parsers/kotlin/KotlinParser.java"/>
     <property name="lang.extension" value=".kt"/>
     <property name="parser.root" value="KotlinFile"/>
 </project>
