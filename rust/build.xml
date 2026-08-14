@@ -1,4 +1,4 @@
-<project name="Rust" default="compile">
+<project name="Rust" default="compile-java">
     <import file="../ant-common.xml" />
     <!--
       The compile, build-parser etc targets are all

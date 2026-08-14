@@ -2,6 +2,7 @@
     <!-- This file gets imported from the build.xml files in the
          subdirectories. -->
     <target name="clean">
+        <delete file="${test.harness}.java"/>
         <delete file="${test.harness}.class"/>
         <delete dir="org" />
     </target>
@@ -40,13 +41,13 @@
         <property name="congo.jar.location" value="../bin/congocc.jar" />
     </target>
 
-    <target name="check-parser-uptodate" depends="congo-init">
-        <uptodate property="parser.uptodate" targetfile="${parser.generated.source}">
+    <target name="check-java-parser-uptodate" depends="congo-init">
+        <uptodate property="java.parser.uptodate" targetfile="${parser.generated.source}">
             <srcfiles dir="." includes="*.ccc" />
         </uptodate>
     </target>
 
-    <target name="build-parser" depends="check-parser-uptodate,get-congo-jar" unless="parser.uptodate">
+    <target name="build-java-parser" depends="check-java-parser-uptodate,get-congo-jar" unless="java.parser.uptodate">
         <echo>Generating the parser from ${grammar.file}...</echo>
         <java fork="true" jar="${congo.jar.location}" failonerror="true">
             <assertions>
@@ -71,7 +72,7 @@
         </replace>
     </target>
 
-    <target name="compile" depends="build-parser,generate-java-test-harness">
+    <target name="compile-java" depends="build-java-parser,generate-java-test-harness">
         <javac srcdir="."
             deprecation="off"
             debug="on"
@@ -82,7 +83,7 @@
         <echo>Test harness is: java ${test.harness} directory_or_files</echo>
     </target>
 
-    <target name="test" depends="compile">
+    <target name="test-java" depends="compile-java">
         <java fork="true"
               failonerror="true"
               classname="${test.harness}" >
@@ -92,4 +93,6 @@
             <arg value="testfiles" />
         </java>
     </target>
+
+    <target name="test" depends="test-java"/>
 </project>
