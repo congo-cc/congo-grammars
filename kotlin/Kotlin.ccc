@@ -4,6 +4,7 @@ DEACTIVATE_TOKENS = SHEBANG;
 TAB_SIZE=4;
 ENSURE_FINAL_EOL;
 PARSER_PACKAGE=org.parsers.kotlin;
+REQUIRE_TOKEN_DECLARATION;
 
 INCLUDE "KotlinLexer.ccc"
 
@@ -208,6 +209,7 @@ ContextParameters :
       [<IDENTIFIER> ":" =>||] Type
       ("," [<IDENTIFIER> ":" =>||] Type)*
   ")"
+  NLs
 ;
 
 ConditionExpression#void : "(" Expression ")" ;
@@ -338,7 +340,7 @@ AdditiveExpression : MultiplicativeExpression (("+"|"-") =>|| MultiplicativeExpr
 
 MultiplicativeExpression : AsExpression (("*"|"/"|"%") =>|| AsExpression)* ;
 
-AsExpression : PrefixUnaryExpression (NLs ("as"|"as?") =>|| NLs Type)* ;
+AsExpression : PrefixUnaryExpression (("as"|"as?") Type)* ;
 
 PrefixUnaryExpression :
     (ENSURE {getTokenType(1) != IDENTIFIER || getTokenType(2) == AT} UnaryPrefix)*
@@ -433,7 +435,7 @@ MemberAccessOperator :
    "?" "."
 ;
 
-AnnotatedLambda : (Annotation)* [Label] NLs =>|+1 LambdaLiteral ;
+AnnotatedLambda : (Annotation)* [Label] =>|+1 LambdaLiteral ;
 
 LambdaLiteral :
     "{"
@@ -536,7 +538,6 @@ ForStatement :
 WhileStatement :
     "while"
     ConditionExpression
-    NLs
     (ControlStructureBody | ";")
 ;
 
@@ -556,12 +557,10 @@ ControlStructureBody#void :
 
 Block :
    "{"
-    (
-       [Semis]
-       ENSURE ~("}")
-       =>||
-       Statement
-   )*
+    [
+      Statement
+      ([Semis] Statement)*
+    ]
    [Semis]
    "}"
 ;
@@ -601,11 +600,11 @@ ClassDeclaration :
    [":" =>|| DelegationSpecifiers]
    [NLs =>|+1 TypeConstraints]
    [
-      SCAN (NLs "{") =>
+      SCAN ("{") =>
       (
-         SCAN 0 {isEnum} => NLs EnumClassBody
+         SCAN 0 {isEnum} => EnumClassBody
          |
-         SCAN 0 NLs ClassBody
+         SCAN 0 ClassBody
       )
    ]
 ;
@@ -619,7 +618,7 @@ ObjectDeclaration :
 ;
 
 FunctionDeclaration :
-   [ContextParameters NLs] // Very bleeding edge
+   [ContextParameters] // Very bleeding edge
    [Modifiers]
    "fun"
    [TypeParameters]
@@ -715,7 +714,7 @@ Getter :
    'get'
    =>||
    [
-      "(" =>|| // Why is this up-to-here necessary? REVISIT
+      "("
       ")"
       [":" =>|| Type]
       FunctionBody
@@ -852,35 +851,29 @@ INJECT Newline :
       ADD,SUB,MOD,MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,
       MULT_LINE_EXPRESSION_START,LSQUARE,COMMA,DOT,
       ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,WHEN,WHERE,THROW,
-      FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,
+      INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,FINALLY,CATCH,
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
       EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN, COLON_COLON,QUEST,AMP,
       ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,
-      MULT_ASSIGNMENT,ELSE,BY
+      MULT_ASSIGNMENT,ELSE,BY,AS,AS_SAFE
     );
 
     // Ignore the newlines preceding these token types. This is because none
-    // of these token types can icommence a statement.
+    // of these token types can commence a statement.
     private static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
-      COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,
-      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,AMP
+      COLON,COMMA,RSQUARE,RANGLE,LCURL,RCURL,ELSE,ELVIS,THROW,
+      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,AMP,
+      AS,AS_SAFE
     );
 
     private boolean alreadyChecked;
 
     public void checkUnparsed(PARSER_CLASS parser) {
         if (!alreadyChecked) {
+             setUnparsed(ignoreFollowingNewlines.contains(precedingTokenType())
+                || ignorePrecedingNewlines.contains(nextNonNewlineType())
+                || parser.canIgnoreNewlines());
              alreadyChecked = true;
-             if (ignoreFollowingNewlines.contains(precedingTokenType())) {
-                 setUnparsed(true);
-                 return;
-             }
-             TokenType followingType = nextNonNewlineType();
-             if (ignorePrecedingNewlines.contains(followingType)) {
-                 setUnparsed(true);
-                 return;
-             }
-             setUnparsed(parser.canIgnoreNewlines());
         }
     }
 
@@ -904,12 +897,19 @@ INJECT Newline :
 INJECT PARSER_CLASS :
    import NODE_PACKAGE.Newline;
 {
+
+    public boolean isInLookahead() {
+      return currentLookaheadProduction != null;
+    }
+
     private boolean isInExplicitDelegateAndNotParenthesized() {
-        ListIterator<NonTerminalCall> it = stackIteratorBackward();
+        //ListIterator<NonTerminalCall> it = stackIteratorBackward();
+        Iterator<String> it = backwardStackIteratorIncludingCurrent();
         while (it.hasNext()) {
             // NB. These strings are interned so we can just
             // use identity comparison.
-            String caller = it.next().productionName;
+            //String caller = it.next().productionName;
+            String caller = it.next();
             if (caller == "ExplicitDelegation") {
                return true;
             }
@@ -921,13 +921,14 @@ INJECT PARSER_CLASS :
     }
 
     public boolean canIgnoreNewlines() {
-        Iterator<NonTerminalCall> it = stackIteratorBackward();
+        Iterator<String> it = backwardStackIteratorIncludingCurrent();
         while (it.hasNext()) {
-            String caller = it.next().productionName;
+            String caller = it.next();
             if (caller == "ValueArguments"
-                || caller == "ConditionExpression"
-                )
-            {
+               || caller == "IfExpression"
+               || caller == "WhileStatement"
+               || caller == "DoWhileStatement"
+               ) {
                 return true;
             }
             if (caller == "Statement"
@@ -1166,10 +1167,8 @@ ParametersWithOptionalType :
 IfExpression :
    "if"
    ConditionExpression
-   NLs
    (ControlStructureBody | ";")
    [
-       NLs
       "else"
       ENSURE ~("->")
       =>||

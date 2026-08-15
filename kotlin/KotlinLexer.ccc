@@ -220,6 +220,8 @@ TOKEN #Keyword :
          matchedToken = matchedToken.replaceType(EXCLAM);
       }
    }
+   |
+   <UNDERSCORE : "_">
 ;
 
 CONTEXTUAL :
