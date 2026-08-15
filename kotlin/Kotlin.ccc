@@ -9,20 +9,18 @@ INCLUDE "KotlinLexer.ccc"
 
 KotlinFile :
   ACTIVATE_TOKENS SHEBANG [<SHEBANG>]
-  NLs
   (FileAnnotation)*
-  [PackageDeclaration]
-  (ImportDeclaration)*
+  [PackageHeader]
+  (ImportHeader)*
   (SCAN ~(<EOF>) => TopLevelObject)*
   <EOF>
 ;
 
 Script :
   ACTIVATE_TOKENS SHEBANG [<SHEBANG>]
-  NLs
   (FileAnnotation)*
-  [PackageDeclaration]
-  (ImportDeclaration)*
+  [PackageHeader]
+  (ImportHeader)*
   (SCAN ~(<EOF>) => Statement Semi)*
   <EOF>
 ;
@@ -32,6 +30,7 @@ TopLevelObject : Declaration [Semis] ;
 DottedName : <IDENTIFIER> ("." <IDENTIFIER> =>||)* ;
 
 NLs#void : (<NL> {popNode();})* ;
+
 
 FileAnnotation :
    "@"
@@ -44,12 +43,11 @@ FileAnnotation :
         |
         UnescapedAnnotation
     )
-    NLs
 ;
 
-PackageDeclaration : "package" DottedName Semis ;
+PackageHeader : "package" DottedName Semis ;
 
-ImportDeclaration :
+ImportHeader :
     'import'
     DottedName
     [
@@ -69,7 +67,7 @@ UnescapedAnnotation :
     ]
 ;
 
-ConstructorInvocation : UserType NLs =>|+1 ValueArguments;
+ConstructorInvocation : UserType =>|+1 ValueArguments;
 
 UserType :
     SimpleUserType
@@ -287,7 +285,7 @@ Equality : Comparison (EqualityOperator Comparison)* ;
 
 Comparison :
     GenericCallLikeComparison
-    (ComparisonOperator NLs GenericCallLikeComparison)*
+    (ComparisonOperator GenericCallLikeComparison)*
 ;
 
 GenericCallLikeComparison :
@@ -308,9 +306,9 @@ InfixOperation :
    (
       ENSURE {getTokenType(0) != NL}
       (
-        InOperator NLs ElvisExpression
+        InOperator ElvisExpression
         |
-        IsOperator NLs Type
+        IsOperator Type
       )
    )*
 ;
@@ -324,8 +322,7 @@ InfixFunctionCall :
     RangeExpression
     (
       ENSURE {
-         peekNode() != null
-         && peekNode().getEndLine() == getToken(1).getBeginLine()
+         getToken(0).getEndLine() == getToken(1).getBeginLine()
          |
          canIgnoreNewlines()
       }
@@ -348,7 +345,7 @@ PrefixUnaryExpression :
     PostfixUnaryExpression
 ;
 
-UnaryPrefix#void : Label | Annotation | PrefixUnaryOperator NLs ;
+UnaryPrefix#void : Label | Annotation | PrefixUnaryOperator ;
 
 PrefixUnaryOperator#void : "++" | "--" | "-" | "+" | "!" ;
 
@@ -533,7 +530,6 @@ ForStatement :
    "in"
    Expression
    ")"
-   NLs
    [ControlStructureBody]
 ;
 
@@ -591,9 +587,8 @@ ClassDeclaration :
       ["fun"] "interface" =>||
    )
    =>||
-   NLs
    <IDENTIFIER>
-   [NLs =>|+1 TypeParameters]
+   [TypeParameters]
    [
       NLs
       ENSURE
@@ -631,7 +626,6 @@ FunctionDeclaration :
    [ReceiverType "." =>||]
    <IDENTIFIER>
    =>||
-   NLs
    FunctionValueParameters
    [":" Type]
    [TypeConstraints]
@@ -845,7 +839,71 @@ ExplicitDelegation :
    Expression
 ;
 
-INJECT PARSER_CLASS : {
+INJECT Newline :
+    import PARSER_PACKAGE.PARSER_CLASS;
+    import PARSER_PACKAGE.BASE_TOKEN_CLASS.TokenType;
+    import PARSER_PACKAGE.TokenSource;
+    import java.util.EnumSet;
+{
+    // If a newline is directly after one of these, it definitely should
+    // be ignored. This is for the simple reason that none of these tokens
+    // are in the final set of the Statement production.
+    private static final EnumSet<TokenType> ignoreFollowingNewlines = EnumSet.of(
+      ADD,SUB,MOD,MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,
+      MULT_LINE_EXPRESSION_START,LSQUARE,COMMA,DOT,
+      ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,WHEN,WHERE,THROW,
+      FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,
+      WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
+      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN, COLON_COLON,QUEST,AMP,
+      ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,
+      MULT_ASSIGNMENT,ELSE,BY
+    );
+
+    // Ignore the newlines preceding these token types. This is because none
+    // of these token types can icommence a statement.
+    private static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
+      COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,
+      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,AMP
+    );
+
+    private boolean alreadyChecked;
+
+    public void checkUnparsed(PARSER_CLASS parser) {
+        if (!alreadyChecked) {
+             alreadyChecked = true;
+             if (ignoreFollowingNewlines.contains(precedingTokenType())) {
+                 setUnparsed(true);
+                 return;
+             }
+             TokenType followingType = nextNonNewlineType();
+             if (ignorePrecedingNewlines.contains(followingType)) {
+                 setUnparsed(true);
+                 return;
+             }
+             setUnparsed(parser.canIgnoreNewlines());
+        }
+    }
+
+    private TokenType precedingTokenType() {
+        BASE_TOKEN_CLASS precedingToken = getPrevious();
+        if (precedingToken == null) return null;
+        return precedingToken.getType();
+    }
+
+    private TokenType nextNonNewlineType() {
+      BASE_TOKEN_CLASS tok = this;
+      LEXER_CLASS lexer = (LEXER_CLASS) getTokenSource();
+      while (true) {
+         tok = lexer.getNextToken(tok);
+         if (!tok.isUnparsed() && tok.getType() != NL) break;
+      }
+      return tok.getType();
+    }
+}
+
+INJECT PARSER_CLASS :
+   import NODE_PACKAGE.Newline;
+{
     private boolean isInExplicitDelegateAndNotParenthesized() {
         ListIterator<NonTerminalCall> it = stackIteratorBackward();
         while (it.hasNext()) {
@@ -862,7 +920,7 @@ INJECT PARSER_CLASS : {
         return false;
     }
 
-    boolean canIgnoreNewlines() {
+    public boolean canIgnoreNewlines() {
         Iterator<NonTerminalCall> it = stackIteratorBackward();
         while (it.hasNext()) {
             String caller = it.next().productionName;
@@ -873,61 +931,22 @@ INJECT PARSER_CLASS : {
                 return true;
             }
             if (caller == "Statement"
-                || caller == "WhenExpression"
-                || caller == "ClassMemberDeclaration")
+                || caller == "Declaration"
+                || caller == "PackageHeader"
+                || caller == "ImportHeader")
             {
                return false;
             }
           }
-        return false;
-    }
-
-    // If a newline is directly after one of these, it definitely should
-    // be ignored.
-    static final EnumSet<TokenType> ignoreFollowingNewlines = EnumSet.of(
-      ADD,SUB,MOD,MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,
-      MULT_LINE_EXPRESSION_START,LSQUARE,COMMA,DOT,
-      ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,WHEN,WHERE,THROW,
-      FINALLY,INIT,COMPANION,TYPE_ALIAS,CONSTRUCTOR,
-      WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
-      EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN, COLON_COLON,QUEST,AMP,
-      ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,
-      MULT_ASSIGNMENT,ELSE,BY
-    );
-
-    // Ignore the newlines preceding these token types
-    static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
-      COLON,COMMA,RSQUARE,RANGLE,ELVIS,FINALLY,THROW,
-      ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,AMP
-    );
-
-    private TokenType nextNonNewlineType(BASE_TOKEN_CLASS tok) {
-      while (true) {
-         tok = token_source.getNextToken(tok);
-         if (!tok.isUnparsed() && tok.getType() != NL) break;
-      }
-      return tok.getType();
+        return true;
     }
 
     BASE_TOKEN_CLASS TOKEN_HOOK(BASE_TOKEN_CLASS tok) {
-      if (tok.getType() == NL && !tok.isUnparsed()) {
-         BASE_TOKEN_CLASS previousToken = tok.getPrevious();
-         if (previousToken != null
-             && ignoreFollowingNewlines.contains(previousToken.getType()))
-         {
-             tok.setUnparsed(true);
-             return tok;
-         }
-         if (ignorePrecedingNewlines.contains(nextNonNewlineType(tok))) {
-            tok.setUnparsed(true);
-            return tok;
-         }
-         if (canIgnoreNewlines()) {
-            tok.setUnparsed(true);
-         }
-      }
-      return tok;
-   }
+        if (tok instanceof Newline) {
+            ((Newline) tok).checkUnparsed(this);
+        }
+        return tok;
+    }
 }
 
 ClassMemberDeclarations : (ClassMemberDeclaration [Semis])* ;
@@ -1072,7 +1091,7 @@ WhenExpression :
 
 WhenEntry :
    WhenCondition
-   [NLs "if" =>||
+   ["if" =>||
       Expression
       ASSERT {getTokenType(1) != COMMA :
              "Cannot have a guard condition in a comma-separated When entry"}
