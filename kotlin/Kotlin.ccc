@@ -212,8 +212,6 @@ ContextParameters :
   NLs
 ;
 
-ConditionExpression#void : "(" Expression ")" ;
-
 Expression#interface : Conjunction ("||" Conjunction)* ;
 
 INJECT Expression :
@@ -445,11 +443,9 @@ LambdaLiteral :
         =>||
     ]
     (
-       SCAN ~([Semis] "}") =>
-       [Semis]
        Statement
+       [Semis]
     )*
-    [Semis]
     "}"
 ;
 
@@ -515,6 +511,8 @@ Statement :
     Assignment
     |
     Declaration
+    |
+    FAIL "Expecting a declaration or an expression or a for, while, or do loop."
    )
 ;
 
@@ -537,7 +535,9 @@ ForStatement :
 
 WhileStatement :
     "while"
-    ConditionExpression
+    "("
+    Expression
+    ")"
     (ControlStructureBody | ";")
 ;
 
@@ -545,7 +545,9 @@ DoWhileStatement :
    "do"
    [ControlStructureBody]
    "while"
-   ConditionExpression
+    "("
+    Expression
+    ")"
 ;
 
 ControlStructureBody#void :
@@ -785,7 +787,6 @@ EnumClassBody :
       NLs ";" =>||
       ClassMemberDeclarations
     ]
-    NLs
     "}"
 ;
 
@@ -812,7 +813,7 @@ AssignmentOperator#void : "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
 
 DelegationSpecifiers :
     AnnotatedDelegationSpecifier
-    ("," NLs AnnotatedDelegationSpecifier)*
+    ("," AnnotatedDelegationSpecifier)*
 ;
 
 AnnotatedDelegationSpecifier : (Annotation)* DelegationSpecifier ;
@@ -847,7 +848,7 @@ INJECT Newline :
     // If a newline is directly after one of these, it definitely should
     // be ignored. This is for the simple reason that none of these tokens
     // are in the final set of the Statement production.
-    private static final EnumSet<TokenType> ignoreFollowingNewlines = EnumSet.of(
+    public static final EnumSet<TokenType> ignoreFollowingNewlines = EnumSet.of(
       ADD,SUB,MOD,MULT,DIV,LCURL,LINE_STR_EXPRESSION_START,
       MULT_LINE_EXPRESSION_START,LSQUARE,COMMA,DOT,
       ELLIPSIS,LANGLE,GE,LE,CONJ,DISJ,VAL,VAR,WHEN,WHERE,THROW,
@@ -860,8 +861,8 @@ INJECT Newline :
 
     // Ignore the newlines preceding these token types. This is because none
     // of these token types can commence a statement.
-    private static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
-      COLON,COMMA,RSQUARE,RANGLE,LCURL,RCURL,ELSE,ELVIS,THROW,
+    public static final EnumSet<TokenType> ignorePrecedingNewlines = EnumSet.of(
+      COLON,COMMA,RSQUARE,RANGLE,LCURL,RCURL,ELSE,ELVIS,
       ARROW,RPAREN,DOT,CONJ,DISJ,LANGLE,QUEST,COLON_COLON,AMP,
       AS,AS_SAFE
     );
@@ -934,7 +935,8 @@ INJECT PARSER_CLASS :
             if (caller == "Statement"
                 || caller == "Declaration"
                 || caller == "PackageHeader"
-                || caller == "ImportHeader")
+                || caller == "ImportHeader"
+                )
             {
                return false;
             }
@@ -1092,15 +1094,18 @@ WhenExpression :
 
 WhenEntry :
    WhenCondition
-   ["if" =>||
-      Expression
-      ASSERT {getTokenType(1) != COMMA :
-             "Cannot have a guard condition in a comma-separated When entry"}
-   ]
+   [IfGuard]
    ("," =>|+1 WhenCondition)* [","]
    "->" ControlStructureBody [Semis]
    |
    "else" "->" ControlStructureBody [Semis]
+;
+
+IfGuard :
+   "if"
+   Expression
+   ASSERT {getTokenType(1) != COMMA :
+          "Cannot have a guard condition in a comma-separated When entry"}
 ;
 
 WhenCondition:
@@ -1166,7 +1171,9 @@ ParametersWithOptionalType :
 
 IfExpression :
    "if"
-   ConditionExpression
+   "("
+    Expression
+   ")"
    (ControlStructureBody | ";")
    [
       "else"
@@ -1189,24 +1196,26 @@ CollectionLiteral :
 TryExpression :
     {boolean hasCatch = false, hasFinally = false;}
     "try" Block
-    (NLs =>|+1 CatchBlock {hasCatch = true;})*
-    [NLs =>|+1 FinallyBlock {hasFinally = true;}]
+    (CatchBlock {hasCatch = true;})*
+    [FinallyBlock {hasFinally = true;}]
     ASSERT {hasCatch | hasFinally : "There must be at least one catch or finally block."}
 ;
 
 CatchBlock :
+   NLs
    'catch'
    "("
    (Annotation)*
    ("_"|<IDENTIFIER>)
    ":"
+   =>||
    Type
    [","]
    ")"
    Block
 ;
 
-FinallyBlock : 'finally' Block ;
+FinallyBlock : NLs 'finally' =>|+1 Block ;
 
 ThrowExpression : "throw" Expression ;
 
