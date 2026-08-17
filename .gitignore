@@ -2,4 +2,5 @@
 /shared/congocc.jar
 /*/org/*
 /*/*Parse.java
+/.vscode/**
 *.code-workspace

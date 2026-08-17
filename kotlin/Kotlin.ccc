@@ -856,7 +856,7 @@ INJECT Newline :
       WHILE, ELVIS,RANGE,RANGE2,ARROW,COLON,SEMICOLON,NL,
       EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,LPAREN, COLON_COLON,QUEST,AMP,
       ASSIGN, ADD_ASSIGNMENT,SUB_ASSIGNMENT,MOD_ASSIGNMENT,DIV_ASSIGNMENT,
-      MULT_ASSIGNMENT,ELSE,BY,AS,AS_SAFE
+      MULT_ASSIGNMENT,ELSE,BY,AS,AS_SAFE,IF,WHILE,DO
     );
 
     // Ignore the newlines preceding these token types. This is because none
@@ -904,13 +904,11 @@ INJECT PARSER_CLASS :
     }
 
     private boolean isInExplicitDelegateAndNotParenthesized() {
-        //ListIterator<NonTerminalCall> it = stackIteratorBackward();
-        Iterator<String> it = backwardStackIteratorIncludingCurrent();
+        ListIterator<NonTerminalCall> it = stackIteratorBackward();
         while (it.hasNext()) {
             // NB. These strings are interned so we can just
             // use identity comparison.
-            //String caller = it.next().productionName;
-            String caller = it.next();
+            String caller = it.next().productionName;
             if (caller == "ExplicitDelegation") {
                return true;
             }
@@ -926,10 +924,11 @@ INJECT PARSER_CLASS :
         while (it.hasNext()) {
             String caller = it.next();
             if (caller == "ValueArguments"
+               || caller == "ParenthesizedExpression"
                || caller == "IfExpression"
                || caller == "WhileStatement"
-               || caller == "DoWhileStatement"
-               ) {
+               || caller == "DoWhileStatement")
+            {
                 return true;
             }
             if (caller == "Statement"
