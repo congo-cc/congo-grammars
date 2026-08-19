@@ -1,6 +1,6 @@
 DEFAULT_LEXICAL_STATE=KOTLIN;
 
-DEACTIVATE_TOKENS = SHEBANG;
+DEACTIVATE_TOKENS = SHEBANG, NL;
 TAB_SIZE=4;
 ENSURE_FINAL_EOL;
 PARSER_PACKAGE=org.parsers.kotlin;
@@ -30,8 +30,7 @@ TopLevelObject : Declaration [Semis] ;
 
 DottedName : <IDENTIFIER> ("." <IDENTIFIER> =>||)* ;
 
-NLs#void : (<NL> {popNode();})* ;
-
+NLs#void : ACTIVATE_TOKENS NL (<NL> {popNode();})* ;
 
 FileAnnotation :
    "@"
@@ -46,10 +45,12 @@ FileAnnotation :
     )
 ;
 
-PackageHeader : "package" DottedName Semis ;
+PackageHeader : "package" ACTIVATE_TOKENS NL (DottedName Semis) ;
 
 ImportHeader :
     'import'
+    ACTIVATE_TOKENS NL
+    (
     DottedName
     [
         "." "*"
@@ -57,6 +58,7 @@ ImportHeader :
         "as" <IDENTIFIER>
     ]
     [Semis]
+    )
 ;
 
 UnescapedAnnotation :
@@ -88,12 +90,15 @@ UserType :
 SimpleUserType : <IDENTIFIER> [TypeArguments] ;
 
 ValueArguments :
-   "("
-   [
-      ValueArgument
-      ("," =>|+1 ValueArgument)* [","]
-   ]
-   ")"
+   DEACTIVATE_TOKENS NL
+   (
+     "("
+     [
+        ValueArgument
+        ("," =>|+1 ValueArgument)* [","]
+     ]
+     ")"
+   )
 ;
 
 ValueArgument :
@@ -209,7 +214,6 @@ ContextParameters :
       [<IDENTIFIER> ":" =>||] Type
       ("," [<IDENTIFIER> ":" =>||] Type)*
   ")"
-  NLs
 ;
 
 Expression#interface : Conjunction ("||" Conjunction)* ;
@@ -323,7 +327,6 @@ InfixFunctionCall :
          canIgnoreNewlines()
       }
       <IDENTIFIER>
-      NLs
       RangeExpression
    )*
 ;
@@ -345,7 +348,7 @@ UnaryPrefix#void : Label | Annotation | PrefixUnaryOperator ;
 
 PrefixUnaryOperator#void : "++" | "--" | "-" | "+" | "!" ;
 
-PostfixUnaryExpression : PrimaryExpression (PostfixUnarySuffix)* ;
+PostfixUnaryExpression : PrimaryExpression DEACTIVATE_TOKENS NL (PostfixUnarySuffix)* ;
 
 EqualityOperator#void : "!=" | "!==" | "==" | "===" ;
 
@@ -359,7 +362,6 @@ Label :
    <IDENTIFIER>
    ENSURE { !Character.isWhitespace(getToken(1).charAt(-1)) }
    "@" =>||
-   NLs
 ;
 
 PostfixUnarySuffixLA#scan :
@@ -417,8 +419,9 @@ CallSuffix#void :
         ]
         |
         ENSURE {!isInExplicitDelegateAndNotParenthesized()}
-        NLs =>|+1
-        AnnotatedLambda
+        ACTIVATE_TOKENS NL (
+         AnnotatedLambda
+        )
     )
 ;
 
@@ -556,15 +559,20 @@ ControlStructureBody#void :
 
 Block :
    "{"
+   ACTIVATE_TOKENS NL
+   (
     [
       Statement
-      ([Semis] Statement)*
+      ([Semis] =>|+1 Statement)*
     ]
-   [Semis]
+    [Semis]
+   )
    "}"
 ;
 
 Declaration :
+//  ACTIVATE_TOKENS NL
+  (
     TypeAlias
     |
     ClassDeclaration
@@ -574,6 +582,7 @@ Declaration :
     FunctionDeclaration
     |
     PropertyDeclaration
+  )
 ;
 
 ClassDeclaration :
@@ -588,7 +597,6 @@ ClassDeclaration :
    <IDENTIFIER>
    [TypeParameters]
    [
-      NLs
       ENSURE
       (
          [[Modifiers] 'constructor'] "("
@@ -596,8 +604,8 @@ ClassDeclaration :
       =>||
       PrimaryConstructor
    ]
-   [":" DelegationSpecifiers NLs]
-   [NLs =>|+1 TypeConstraints]
+   [":" DelegationSpecifiers]
+   [TypeConstraints]
    [
       SCAN ("{") =>
       (
@@ -661,12 +669,15 @@ TypeAlias :
 PrimaryConstructor : [[Modifiers] 'constructor'] ClassParameters ;
 
 ClassParameters :
+   DEACTIVATE_TOKENS NL
+   (
     "("
     [
         ClassParameter
         ("," =>|+1 ClassParameter)* [","]
     ]
     ")"
+   )
 ;
 
 ClassParameter :
@@ -687,7 +698,6 @@ PropertyDeclaration :
   (MultiVariableDeclaration | VariableDeclaration |"_")
   [TypeConstraints]
   [
-   NLs =>|+1
    (
     "=" Expression
     |
@@ -695,7 +705,6 @@ PropertyDeclaration :
    )
   ]
   [
-     NLs
      ENSURE ([";"] [Modifiers] (Getter|Setter) ENSURE ~(MemberAccessOperator))
      =>||
      (
@@ -781,7 +790,7 @@ EnumClassBody :
     "{"
     [EnumEntries]
     [
-      NLs ";" =>||
+      ";"
       ClassMemberDeclarations
     ]
     "}"
@@ -824,14 +833,13 @@ DelegationSpecifier :
    |
    FunctionType
    |
-   'suspend' NLs FunctionType
+   'suspend' FunctionType
 ;
 
 PropertyDelegate : 'by' Expression ;
 
 ExplicitDelegation :
    (UserType | FunctionType)
-   NLs
    'by' =>||
    Expression
 ;
@@ -845,6 +853,7 @@ INJECT Newline :
     // If a newline is directly after one of these, it definitely should
     // be ignored. This is for the simple reason that none of these tokens
     // are in the final set of the Statement production.
+    /*
     private static final EnumSet<TokenType>
      IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES = EnumSet.of(
       ADD,ADD_ASSIGNMENT,AMP,ARROW,AS,AS_SAFE,ASSIGN,BY,
@@ -858,23 +867,29 @@ INJECT Newline :
       SEMICOLON,SUB,SUB_ASSIGNMENT,
       THROW,TYPE_ALIAS,
       VAL,VAR,WHEN,WHERE,WHILE
-    );
+    );*/
 
     // Ignore the newlines preceding these token types. This is because none
     // of these token types can commence a statement.
-    private static final EnumSet<TokenType>
+    /*private static final EnumSet<TokenType>
      IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES = EnumSet.of(
       AMP,ARROW,AS,AS_SAFE,COLON,COMMA,CONJ,DISJ,DOT,ELSE,ELVIS,
       LANGLE,QUEST,RANGLE,RCURL,RPAREN,RSQUARE
-    );
+    );*/
+
+    private static final EnumSet<TokenType>
+     IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES = EnumSet.of(COMMA,DOT);
+
+    private static final EnumSet<TokenType>
+     IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES = EnumSet.of(COMMA,DOT);
 
     private boolean alreadyChecked;
 
     public void checkUnparsed(PARSER_CLASS parser) {
         if (!alreadyChecked) {
              setUnparsed(IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES.contains(precedingTokenType())
-                || IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES.contains(nextNonNewlineType())
-                || parser.canIgnoreNewlines());
+                  || IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES.contains(nextNonNewlineType()));
+                //|| parser.canIgnoreNewlines());
              alreadyChecked = true;
         }
     }
@@ -974,7 +989,7 @@ CompanionObject :
     ['data']
     "object"
     [<IDENTIFIER>]
-    [":" DelegationSpecifiers NLs]
+    [":" DelegationSpecifiers]
     [ClassBody]
 ;
 
@@ -1082,16 +1097,19 @@ CallableReference :
 ObjectLiteral# :
    ['data']
    "object" =>||
-   [":" DelegationSpecifiers NLs]
+   [":" DelegationSpecifiers]
    [ClassBody]
 ;
 
 WhenExpression :
+  ACTIVATE_TOKENS NL
+  (
    "when"
    [WhenSubject]
    "{"
    (SCAN ~("}") => WhenEntry)*
    "}"
+  )
 ;
 
 WhenEntry :
@@ -1172,7 +1190,9 @@ ParametersWithOptionalType :
 ;
 
 IfExpression :
-   "if"
+  DEACTIVATE_TOKENS NL
+  (
+  "if"
    "("
     Expression
    ")"
@@ -1183,6 +1203,7 @@ IfExpression :
       =>||
       (ControlStructureBody | ";")
    ]
+  )
 ;
 
 CollectionLiteral :
