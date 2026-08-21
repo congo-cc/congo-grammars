@@ -30,7 +30,8 @@ TopLevelObject : Declaration [Semis] ;
 
 DottedName : <IDENTIFIER> ("." <IDENTIFIER> =>||)* ;
 
-NLs#void : ACTIVATE_TOKENS NL (<NL> {popNode();})* ;
+//NLs#void : ACTIVATE_TOKENS NL (<NL> {popNode();})* ;
+NLs#void : (<NL> {popNode();})* ;
 
 FileAnnotation :
    "@"
@@ -90,13 +91,15 @@ UserType :
 SimpleUserType : <IDENTIFIER> [TypeArguments] ;
 
 ValueArguments :
-   DEACTIVATE_TOKENS NL
    (
      "("
+   DEACTIVATE_TOKENS NL
+    (
      [
         ValueArgument
         ("," =>|+1 ValueArgument)* [","]
      ]
+    )
      ")"
    )
 ;
@@ -340,7 +343,12 @@ MultiplicativeExpression : AsExpression (("*"|"/"|"%") =>|| AsExpression)* ;
 AsExpression : PrefixUnaryExpression (("as"|"as?") Type)* ;
 
 PrefixUnaryExpression :
-    (ENSURE {getTokenType(1) != IDENTIFIER || getTokenType(2) == AT} UnaryPrefix)*
+    (ENSURE {getTokenType(1) != IDENTIFIER
+             || getTokenType(2) == AT
+                && getToken(1).getEndOffset() == getToken(2).getBeginOffset()
+             }
+       UnaryPrefix
+    )*
     PostfixUnaryExpression
 ;
 
@@ -348,7 +356,11 @@ UnaryPrefix#void : Label | Annotation | PrefixUnaryOperator ;
 
 PrefixUnaryOperator#void : "++" | "--" | "-" | "+" | "!" ;
 
-PostfixUnaryExpression : PrimaryExpression DEACTIVATE_TOKENS NL (PostfixUnarySuffix)* ;
+PostfixUnaryExpression :
+   PrimaryExpression
+   DEACTIVATE_TOKENS NL (PostfixUnarySuffix)*
+   (PostfixUnarySuffix)*
+;
 
 EqualityOperator#void : "!=" | "!==" | "==" | "===" ;
 
@@ -385,7 +397,7 @@ PostfixUnarySuffix#void :
     |
     (NavigationSuffix) #NavigationExpression(+1)
     |
-    (CallSuffix) #CallExpression(+1)
+    (NLs CallSuffix) #CallExpression(+1)
     |
     TypeArguments #ExpressionWithTypeArguments(2)
     |
@@ -419,9 +431,7 @@ CallSuffix#void :
         ]
         |
         ENSURE {!isInExplicitDelegateAndNotParenthesized()}
-        ACTIVATE_TOKENS NL (
-         AnnotatedLambda
-        )
+        AnnotatedLambda
     )
 ;
 
@@ -493,138 +503,146 @@ DestructuringVariableDeclaration :
 
 DestructuringEntry : "_" | <IDENTIFIER> [":" Type] ;
 
-Semis : Semi (";")* ;
+//Semis : Semi (";")* ;
+Semis : ACTIVATE_TOKENS NL(Semi)+ ;
 
-Semi#void : ";" | <NL> ;
+Semi#void : ACTIVATE_TOKENS NL(";" | <NL>) ;
 
 Statement :
-   (Label|Annotation)*
-   (
-    ForStatement
-    |
-    WhileStatement
-    |
-    DoWhileStatement
-    |
-    FunctionDeclaration
-    |
-    Assignment
-    |
-    Declaration
-    |
-    FAIL "Expecting a declaration or an expression or a for, while, or do loop."
-   )
+(Label|Annotation)*
+(
+   ForStatement
+   |
+   WhileStatement
+   |
+   DoWhileStatement
+   |
+   FunctionDeclaration
+   |
+   Assignment
+   |
+   Declaration
+   |
+   FAIL "Expecting a declaration or an expression or a for, while, or do loop."
+)
 ;
 
 ForStatement :
-   "for"
-   "("
-   (Annotation)*
-   (
-      MultiVariableDeclaration
-      |
-      DestructuringVariableDeclaration
-      |
-      VariableDeclaration
-   )
-   "in"
-   Expression
-   ")"
-   [ControlStructureBody]
+"for"
+"("
+(Annotation)*
+(
+   MultiVariableDeclaration
+   |
+   DestructuringVariableDeclaration
+   |
+   VariableDeclaration
+)
+"in"
+Expression
+")"
+//NLs
+[ControlStructureBody]
 ;
 
 WhileStatement :
-    "while"
-    "("
-    Expression
-    ")"
-    (ControlStructureBody | ";")
+   "while"
+   "("
+   Expression
+   ")"
+   //NLs
+   (ControlStructureBody | ";")
 ;
 
 DoWhileStatement :
-   "do"
-   [ControlStructureBody]
-   "while"
-    "("
-    Expression
-    ")"
+"do"
+[ControlStructureBody]
+"while"
+   "("
+   Expression
+   ")"
 ;
 
 ControlStructureBody#void :
-    ENSURE ~(LambdaLiteral)
-    Block
-    |
-    Statement
+   ENSURE ~(LambdaLiteral)
+   Block
+   |
+   ACTIVATE_TOKENS NL
+   (NLs Statement [Semis])
 ;
 
 Block :
-   "{"
-   ACTIVATE_TOKENS NL
-   (
-    [
-      Statement
-      ([Semis] =>|+1 Statement)*
-    ]
-    [Semis]
-   )
-   "}"
+"{"
+ACTIVATE_TOKENS NL
+(
+   NLs
+   [
+   Statement
+   ([Semis] =>|+1 Statement)*
+   ]
+   [Semis]
+)
+"}"
 ;
 
 Declaration :
-//  ACTIVATE_TOKENS NL
-  (
-    TypeAlias
-    |
-    ClassDeclaration
-    |
-    ObjectDeclaration
-    |
-    FunctionDeclaration
-    |
-    PropertyDeclaration
-  )
+ACTIVATE_TOKENS NL
+(
+   TypeAlias
+   |
+   ClassDeclaration
+   |
+   ObjectDeclaration
+   |
+   FunctionDeclaration
+   |
+   PropertyDeclaration
+)
 ;
 
 ClassDeclaration :
-   {boolean isEnum = false;}
-   [Modifiers {isEnum = peekNode().firstChildOfType(TokenType.ENUM)!= null;}]
+{boolean isEnum = false;}
+[Modifiers {isEnum = peekNode().firstChildOfType(TokenType.ENUM)!= null;}]
+(
+   "class"
+   |
+   ["fun"] "interface" =>||
+)
+=>||
+<IDENTIFIER>
+[TypeParameters]
+[
+   ENSURE
    (
-      "class"
-      |
-      ["fun"] "interface" =>||
+      [[Modifiers] 'constructor'] "("
    )
    =>||
-   <IDENTIFIER>
-   [TypeParameters]
-   [
-      ENSURE
-      (
-         [[Modifiers] 'constructor'] "("
-      )
-      =>||
-      PrimaryConstructor
-   ]
-   [":" DelegationSpecifiers]
-   [TypeConstraints]
-   [
-      SCAN ("{") =>
-      (
-         SCAN 0 {isEnum} => EnumClassBody
-         |
-         SCAN 0 ClassBody
-      )
-   ]
+   PrimaryConstructor
+]
+[":" DelegationSpecifiers]
+[TypeConstraints]
+NLs
+[
+   SCAN ("{") =>
+   (
+      SCAN 0 {isEnum} => EnumClassBody
+      |
+      SCAN 0 ClassBody
+   )
+]
 ;
 
 ObjectDeclaration :
-    [Modifiers]
-    "object"
-    <IDENTIFIER> =>||
-    [":" DelegationSpecifiers]
-    [ClassBody]
+   [Modifiers]
+   "object"
+   <IDENTIFIER> =>||
+   [":" DelegationSpecifiers]
+   [ClassBody]
 ;
 
 FunctionDeclaration :
+   DEACTIVATE_TOKENS NL
+   (
    [ContextParameters] // Very bleeding edge
    [Modifiers]
    "fun"
@@ -632,112 +650,131 @@ FunctionDeclaration :
    [ReceiverType "." =>||]
    <IDENTIFIER>
    =>||
-   FunctionValueParameters
-   [":" Type]
-   [TypeConstraints]
-   [FunctionBody]
+      FunctionValueParameters
+      [":" Type]
+      [TypeConstraints]
+   )
+   [NLs =>|+1 FunctionBody]
 ;
 
 FunctionBody : Block | "=" Expression ;
 
 Modifiers# :
-   ENSURE ~(Modifier ":")
-   (
-      ENSURE ~\EnumEntry
-      Modifier
-      |
-      Annotation
-   )+
+ENSURE ~(Modifier ":")
+(
+   ENSURE ~\EnumEntry
+   Modifier
+   |
+   Annotation
+)+
 ;
 
 Modifier#void :
-   'sealed' | 'annotation' | 'data' | 'inner' | 'value' |
-   'override' | 'lateinit' | 'public' | 'private' | 'internal' | 'protected' |
-   'tailrec' | 'operator' | 'infix' | 'inline' | 'external' | 'suspend' |
-   'const' | 'abstract' | 'final' | 'open' | 'vararg' | 'noinline' | 'crossinline' |
-   'expect' | 'actual' | 'enum'
+'sealed' | 'annotation' | 'data' | 'inner' | 'value' |
+'override' | 'lateinit' | 'public' | 'private' | 'internal' | 'protected' |
+'tailrec' | 'operator' | 'infix' | 'inline' | 'external' | 'suspend' |
+'const' | 'abstract' | 'final' | 'open' | 'vararg' | 'noinline' | 'crossinline' |
+'expect' | 'actual' | 'enum'
 ;
 
 TypeAlias :
-   [Modifiers] "typealias" =>||
-   <IDENTIFIER>
-   [TypeParameters]
-   "="
-   Type
+[Modifiers] "typealias" =>||
+<IDENTIFIER>
+[TypeParameters]
+"="
+Type
 ;
 
 PrimaryConstructor : [[Modifiers] 'constructor'] ClassParameters ;
 
 ClassParameters :
-   DEACTIVATE_TOKENS NL
-   (
-    "("
-    [
-        ClassParameter
-        ("," =>|+1 ClassParameter)* [","]
-    ]
-    ")"
-   )
+DEACTIVATE_TOKENS NL
+(
+   "("
+   [
+      ClassParameter
+      ("," =>|+1 ClassParameter)* [","]
+   ]
+   ")"
+)
 ;
 
 ClassParameter :
-   [Modifiers]
-   ["val"|"var"]
-   <IDENTIFIER>
-   ":"
-   Type
-   ["=" Expression]
+[Modifiers]
+["val"|"var"]
+<IDENTIFIER>
+":"
+Type
+["=" Expression]
 ;
 
 PropertyDeclaration :
-  [Modifiers]
-  ("val"|"var")
-  =>||
-  [TypeParameters]
-  [ReceiverType "." =>||]
-  (MultiVariableDeclaration | VariableDeclaration |"_")
-  [TypeConstraints]
-  [
+[Modifiers]
+("val"|"var")
+=>||
+DEACTIVATE_TOKENS NL
+(
+[TypeParameters]
+[ReceiverType "." =>||]
+(MultiVariableDeclaration | VariableDeclaration |"_")
+[TypeConstraints]
+[
+(
+   "=" Expression
+   |
+   PropertyDelegate
+)
+]
+[
+   ENSURE ([";"] [Modifiers] (Getter|Setter) ENSURE ~(MemberAccessOperator))
+   =>||
    (
-    "=" Expression
-    |
-    PropertyDelegate
+      Getter [[Semi] ENSURE ([Modifiers] 'set') =>|| Setter]
+      |
+      Setter [[Semi] ENSURE ([Modifiers] 'get') =>|| Getter]
+      |
+      Semi (Getter|Setter)
    )
-  ]
-  [
-     ENSURE ([";"] [Modifiers] (Getter|Setter) ENSURE ~(MemberAccessOperator))
-     =>||
-     (
-        Getter [[Semi] ENSURE ([Modifiers] 'set') =>|| Setter]
-        |
-        Setter [[Semi] ENSURE ([Modifiers] 'get') =>|| Getter]
-        |
-        Semi (Getter|Setter)
-     )
-  ]
+]
+)
 ;
 
 Getter :
-   [Modifiers]
-   'get'
-   =>||
-   [
-      "("
-      ")"
-      [":" =>|| Type]
-      FunctionBody
-   ]
+[Modifiers]
+'get'
+=>||
+[
+   "("
+   ")"
+   [":" =>|| Type]
+   FunctionBody
+]
 ;
 
 // A separate #scan that checks that either we have a
 // simple (no params) setter or a setter with exactly one
 // parameter
 SetterLA#scan :
-   [Modifiers]
-   'set' ENSURE ~("(") =>||
+[Modifiers]
+'set' ENSURE ~("(") =>||
+|
+[Modifiers]
+'set'
+"("
+(
+   "_"
    |
-   [Modifiers]
-   'set'
+   FunctionValueParameterWithOptionalType [","]
+)
+")"
+("{" | "=")
+;
+
+Setter :
+SCAN SetterLA =>
+[Modifiers]
+'set'
+[
    "("
    (
       "_"
@@ -745,40 +782,32 @@ SetterLA#scan :
       FunctionValueParameterWithOptionalType [","]
    )
    ")"
-   ("{" | "=")
-;
-
-Setter :
-   SCAN SetterLA =>
-   [Modifiers]
-   'set'
-   [
-      "("
-      (
-         "_"
-         |
-         FunctionValueParameterWithOptionalType [","]
-      )
-      ")"
-      [":" Type]
-      FunctionBody
-   ]
+   [":" Type]
+   FunctionBody
+]
 ;
 
 TypeParameters :
-   "<"
-   TypeParameter
-   ("," =>|+1 TypeParameter)* [","]
-   ">"
+"<"
+TypeParameter
+("," =>|+1 TypeParameter)* [","]
+">"
 ;
 
 TypeParameter :
-   TypeParameterModifiers
-   <IDENTIFIER>
-   [":" Type]
+TypeParameterModifiers
+<IDENTIFIER>
+[":" Type]
 ;
 
-TypeConstraints : 'where' TypeConstraint ("," TypeConstraint)* ;
+TypeConstraints :
+DEACTIVATE_TOKENS NL
+(
+'where'
+TypeConstraint
+("," TypeConstraint)*
+)
+;
 
 TypeConstraint : (Annotation)* <IDENTIFIER> ":" Type ;
 
@@ -787,247 +816,260 @@ TypeParameterModifiers# : ('reified' | "in" | 'out' | Annotation)* ;
 ClassBody : "{" ClassMemberDeclarations "}" ;
 
 EnumClassBody :
-    "{"
-    [EnumEntries]
-    [
-      ";"
-      ClassMemberDeclarations
-    ]
-    "}"
+DEACTIVATE_TOKENS NL
+(
+   "{"
+   [EnumEntries]
+   [
+   ";"
+   ClassMemberDeclarations
+   ]
+   "}"
+)
 ;
 
 Assignment :
-    {
-      Expression lhs;
-      boolean isSimpleAssign = false;
-    }
-    lhs=Expression
-    [
-       AssignmentOperator {isSimpleAssign = getTokenType(0) == ASSIGN;}
-       Expression
-       ASSERT {!isSimpleAssign || lhs.canBeAssignedTo(),
-               lhs :
-               "Expression " + lhs
-               + " of type " + lhs.getClass().getSimpleName()
-               + "\nat " + lhs.getLocation()
-               + "\ncannot be assigned to."
-       }
-    ]
+   {
+   Expression lhs;
+   boolean isSimpleAssign = false;
+   }
+   lhs=Expression
+   [
+      AssignmentOperator {isSimpleAssign = getTokenType(0) == ASSIGN;}
+      Expression
+      ASSERT {!isSimpleAssign || lhs.canBeAssignedTo(),
+            lhs :
+            "Expression " + lhs
+            + " of type " + lhs.getClass().getSimpleName()
+            + "\nat " + lhs.getLocation()
+            + "\ncannot be assigned to."
+      }
+   ]
 ;
 
 AssignmentOperator#void : "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
 
 DelegationSpecifiers :
-    AnnotatedDelegationSpecifier
-    ("," AnnotatedDelegationSpecifier)*
+   AnnotatedDelegationSpecifier
+   ("," AnnotatedDelegationSpecifier)*
 ;
 
 AnnotatedDelegationSpecifier : (Annotation)* DelegationSpecifier ;
 
 DelegationSpecifier :
-   ConstructorInvocation
-   |
-   ExplicitDelegation
-   |
-   UserType
-   |
-   FunctionType
-   |
-   'suspend' FunctionType
+ConstructorInvocation
+|
+ExplicitDelegation
+|
+UserType
+|
+FunctionType
+|
+'suspend' FunctionType
 ;
 
 PropertyDelegate : 'by' Expression ;
 
 ExplicitDelegation :
-   (UserType | FunctionType)
-   'by' =>||
-   Expression
+(UserType | FunctionType)
+NLs
+'by' =>||
+NLs
+Expression
 ;
 
 INJECT Newline :
-    import PARSER_PACKAGE.PARSER_CLASS;
-    import PARSER_PACKAGE.BASE_TOKEN_CLASS.TokenType;
-    import PARSER_PACKAGE.TokenSource;
-    import java.util.EnumSet;
+   import PARSER_PACKAGE.PARSER_CLASS;
+   import PARSER_PACKAGE.BASE_TOKEN_CLASS.TokenType;
+   import PARSER_PACKAGE.TokenSource;
+   import java.util.EnumSet;
 {
-    // If a newline is directly after one of these, it definitely should
-    // be ignored. This is for the simple reason that none of these tokens
-    // are in the final set of the Statement production.
-    /*
-    private static final EnumSet<TokenType>
-     IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES = EnumSet.of(
-      ADD,ADD_ASSIGNMENT,AMP,ARROW,AS,AS_SAFE,ASSIGN,BY,
-      CATCH,COLON,COLON_COLON,COMMA,COMPANION,CONJ,CONSTRUCTOR,
-      DIV,DIV_ASSIGNMENT,DISJ,DO,DOT,
-      ELLIPSIS,ELSE,ELVIS,EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,
-      FINALLY,GE,IF,INIT,
-      LANGLE,LCURL,LE,LINE_STR_EXPRESSION_START,LPAREN,LSQUARE,
-      MOD,MOD_ASSIGNMENT,MULT,MULT_ASSIGNMENT,MULT_LINE_EXPRESSION_START,
-      NL,QUEST,RANGE,RANGE2,
-      SEMICOLON,SUB,SUB_ASSIGNMENT,
-      THROW,TYPE_ALIAS,
-      VAL,VAR,WHEN,WHERE,WHILE
-    );*/
+   // If a newline is directly after one of these, it definitely should
+   // be ignored. This is for the simple reason that none of these tokens
+   // are in the final set of the Statement production.
+   /*
+   private static final EnumSet<TokenType>
+   IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES = EnumSet.of(
+   ADD,ADD_ASSIGNMENT,AMP,ARROW,AS,AS_SAFE,ASSIGN,BY,
+   CATCH,COLON,COLON_COLON,COMMA,COMPANION,CONJ,CONSTRUCTOR,
+   DIV,DIV_ASSIGNMENT,DISJ,DO,DOT,
+   ELLIPSIS,ELSE,ELVIS,EQ_EQ,EQ_EQ_EQ,EXCL_EQ,EXCL_EQ_EQ,
+   FINALLY,GE,IF,INIT,
+   LANGLE,LCURL,LE,LINE_STR_EXPRESSION_START,LPAREN,LSQUARE,
+   MOD,MOD_ASSIGNMENT,MULT,MULT_ASSIGNMENT,MULT_LINE_EXPRESSION_START,
+   NL,QUEST,RANGE,RANGE2,
+   SEMICOLON,SUB,SUB_ASSIGNMENT,
+   THROW,TYPE_ALIAS,
+   VAL,VAR,WHEN,WHERE,WHILE
+   );*/
 
-    // Ignore the newlines preceding these token types. This is because none
-    // of these token types can commence a statement.
-    /*private static final EnumSet<TokenType>
-     IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES = EnumSet.of(
-      AMP,ARROW,AS,AS_SAFE,COLON,COMMA,CONJ,DISJ,DOT,ELSE,ELVIS,
-      LANGLE,QUEST,RANGLE,RCURL,RPAREN,RSQUARE
-    );*/
+   // Ignore the newlines preceding these token types. This is because none
+   // of these token types can commence a statement.
+   /*private static final EnumSet<TokenType>
+   IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES = EnumSet.of(
+   AMP,ARROW,AS,AS_SAFE,COLON,COMMA,CONJ,DISJ,DOT,ELSE,ELVIS,
+   LANGLE,QUEST,RANGLE,RCURL,RPAREN,RSQUARE
+   );*/
 
-    private static final EnumSet<TokenType>
-     IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES = EnumSet.of(COMMA,DOT);
+   private static final EnumSet<TokenType>
+   IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES = EnumSet.of(
+      ADD,AMP,ARROW,ASSIGN,COLON,COMMA,DOT,ELVIS,
+      LANGLE,LCURL,LPAREN,SUB
+   );
 
-    private static final EnumSet<TokenType>
-     IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES = EnumSet.of(COMMA,DOT);
+   private static final EnumSet<TokenType>
+   IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES = EnumSet.of(
+      AMP,ASSIGN,COMMA,DOT,ELVIS,RANGLE,RCURL,RPAREN
+   );
 
-    private boolean alreadyChecked;
+   private boolean alreadyChecked;
 
-    public void checkUnparsed(PARSER_CLASS parser) {
-        if (!alreadyChecked) {
-             setUnparsed(IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES.contains(precedingTokenType())
-                  || IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES.contains(nextNonNewlineType()));
-                //|| parser.canIgnoreNewlines());
-             alreadyChecked = true;
-        }
-    }
-
-    private TokenType precedingTokenType() {
-        BASE_TOKEN_CLASS precedingToken = getPrevious();
-        if (precedingToken == null) return null;
-        return precedingToken.getType();
-    }
-
-    private TokenType nextNonNewlineType() {
-      BASE_TOKEN_CLASS tok = this;
-      LEXER_CLASS lexer = (LEXER_CLASS) getTokenSource();
-      while (true) {
-         tok = lexer.getNextToken(tok);
-         if (!tok.isUnparsed() && tok.getType() != NL) break;
+   public void checkUnparsed(PARSER_CLASS parser) {
+      if (!alreadyChecked) {
+            setUnparsed(IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES.contains(precedingTokenType())
+               || IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES.contains(nextNonNewlineType())
+               // parser.canIgnoreNewlines()
+               );
+            alreadyChecked = true;
       }
-      return tok.getType();
-    }
+   }
+
+   private TokenType precedingTokenType() {
+      BASE_TOKEN_CLASS precedingToken = getPrevious();
+      if (precedingToken == null) return null;
+      return precedingToken.getType();
+   }
+
+   private TokenType nextNonNewlineType() {
+   BASE_TOKEN_CLASS tok = this;
+   LEXER_CLASS lexer = (LEXER_CLASS) getTokenSource();
+   while (true) {
+      tok = lexer.getNextToken(tok);
+      if (!tok.isUnparsed() && tok.getType() != NL) break;
+   }
+   return tok.getType();
+   }
 }
 
 INJECT PARSER_CLASS :
-   import NODE_PACKAGE.Newline;
+import NODE_PACKAGE.Newline;
 {
 
-    public boolean isInLookahead() {
-      return currentLookaheadProduction != null;
-    }
+   public boolean isInLookahead() {
+   return currentLookaheadProduction != null;
+   }
 
-    private boolean isInExplicitDelegateAndNotParenthesized() {
-        ListIterator<NonTerminalCall> it = stackIteratorBackward();
-        while (it.hasNext()) {
-            // NB. These strings are interned so we can just
-            // use identity comparison.
-            String caller = it.next().productionName;
-            if (caller == "ExplicitDelegation") {
-               return true;
-            }
-            if (caller == "ValueArguments") {
-                return false;
-            }
-        }
-        return false;
-    }
-
-    public boolean canIgnoreNewlines() {
-        Iterator<String> it = backwardStackIteratorIncludingCurrent();
-        while (it.hasNext()) {
-            String caller = it.next();
-            if (caller == "ValueArguments"
-               || caller == "ParenthesizedExpression"
-               || caller == "ClassParameters"
-               || caller == "TypeConstraints"
-               || caller == "IfExpression"
-               || caller == "WhileStatement"
-               || caller == "DoWhileStatement")
-            {
-                return true;
-            }
-            if (caller == "Statement"
-                || caller == "Declaration"
-                || caller == "PackageHeader"
-                || caller == "ImportHeader"
-                )
-            {
+   private boolean isInExplicitDelegateAndNotParenthesized() {
+      ListIterator<NonTerminalCall> it = stackIteratorBackward();
+      while (it.hasNext()) {
+         // NB. These strings are interned so we can just
+         // use identity comparison.
+         String caller = it.next().productionName;
+         if (caller == "ExplicitDelegation") {
+            return true;
+         }
+         if (caller == "ValueArguments") {
                return false;
-            }
-          }
-        return true;
-    }
+         }
+      }
+      return false;
+   }
 
-    BASE_TOKEN_CLASS TOKEN_HOOK(BASE_TOKEN_CLASS tok) {
-        if (tok instanceof Newline) {
-            ((Newline) tok).checkUnparsed(this);
-        }
-        return tok;
-    }
+   public boolean canIgnoreNewlines() {
+      Iterator<String> it = backwardStackIteratorIncludingCurrent();
+      while (it.hasNext()) {
+         String caller = it.next();
+         if (caller == "ValueArguments"
+            || caller == "ParenthesizedExpression"
+            || caller == "ClassParameters"
+            || caller == "TypeConstraints"
+            || caller == "IfExpression"
+            || caller == "WhileStatement"
+            || caller == "DoWhileStatement")
+         {
+               return true;
+         }
+         if (caller == "Statement"
+               || caller == "Declaration"
+               || caller == "PackageHeader"
+               || caller == "ImportHeader"
+               )
+         {
+            return false;
+         }
+         }
+      return true;
+   }
+
+   BASE_TOKEN_CLASS TOKEN_HOOK(BASE_TOKEN_CLASS tok) {
+      if (tok instanceof Newline) {
+         ((Newline) tok).checkUnparsed(this);
+      }
+      return tok;
+   }
 }
 
-ClassMemberDeclarations : (ClassMemberDeclaration [Semis])* ;
+ClassMemberDeclarations :
+(ClassMemberDeclaration [Semis])*
+;
 
 ClassMemberDeclaration :
-   CompanionObject
-   |
-   AnonymousInitializer
-   |
-   SecondaryConstructor
-   |
-   Declaration
+CompanionObject
+|
+AnonymousInitializer
+|
+SecondaryConstructor
+|
+Declaration
 ;
 
 AnonymousInitializer : 'init' Block ;
 
 CompanionObject :
-    [Modifiers]
-    'companion' =>||
-    ['data']
-    "object"
-    [<IDENTIFIER>]
-    [":" DelegationSpecifiers]
-    [ClassBody]
+   [Modifiers]
+   'companion' =>||
+   ['data']
+   "object"
+   [<IDENTIFIER>]
+   [":" DelegationSpecifiers]
+   [ClassBody]
 ;
 
 SecondaryConstructor :
-   [Modifiers]
-   'constructor' =>||
-   FunctionValueParameters
-   [":" ConstructorDelegationCall]
-   [Block]
+[Modifiers]
+'constructor' =>||
+FunctionValueParameters
+[":" ConstructorDelegationCall]
+[Block]
 ;
 
 ConstructorDelegationCall : ("this"|"super") ValueArguments ;
 
 FunctionValueParameters :
-   "("
-   [
-      FunctionValueParameter
-      ("," =>|+1 FunctionValueParameter)* [","]
-   ]
-   ")"
+"("
+[
+   FunctionValueParameter
+   ("," =>|+1 FunctionValueParameter)* [","]
+]
+")"
 ;
 
 FunctionValueParameter :
-    [ParameterModifiers]
-    Parameter
-    ["=" Expression]
+   [ParameterModifiers]
+   Parameter
+   ["=" Expression]
 ;
 
 ParameterModifiers :
-    (Annotation|ParameterModifier)+
+   (Annotation|ParameterModifier)+
 ;
 
 ParameterModifier#void : 'vararg' | 'noinline' | 'crossinline' ;
 
 FunctionValueParameterWithOptionalType :
-   [ParameterModifiers]
-   ParameterWithOptionalType
-   ["=" Expression]
+[ParameterModifiers]
+ParameterWithOptionalType
+["=" Expression]
 ;
 
 ParameterWithOptionalType : <IDENTIFIER> [":" Type] ;
@@ -1116,7 +1158,8 @@ WhenEntry :
    WhenCondition
    [IfGuard]
    ("," =>|+1 WhenCondition)* [","]
-   "->" ControlStructureBody [Semis]
+   "->"
+   ControlStructureBody [Semis]
    |
    "else" "->" ControlStructureBody [Semis]
 ;
@@ -1243,6 +1286,8 @@ FinallyBlock : NLs 'finally' =>|+1 Block ;
 ThrowExpression : "throw" Expression ;
 
 ReturnExpression# :
+  ACTIVATE_TOKENS NL
+  (
     (
       <RETURN_AT>
       |
@@ -1252,6 +1297,7 @@ ReturnExpression# :
       ENSURE ~(";"|<NL>)
       Expression
     ]
+  )
 ;
 
 ContinueExpression# : <CONTINUE_AT> | "continue" ;
