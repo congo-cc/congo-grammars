@@ -318,9 +318,9 @@ InfixFunctionCall :
     RangeExpression
     (
       ENSURE {
-         getToken(0).getEndLine() == getToken(1).getBeginLine()
-         |
          canIgnoreNewlines()
+         |
+         getToken(0).getEndLine() == getToken(1).getBeginLine()
       }
       <IDENTIFIER>
       NLs
@@ -337,7 +337,10 @@ MultiplicativeExpression : AsExpression (("*"|"/"|"%") =>|| AsExpression)* ;
 AsExpression : PrefixUnaryExpression (("as"|"as?") Type)* ;
 
 PrefixUnaryExpression :
-    (ENSURE {getTokenType(1) != IDENTIFIER || getTokenType(2) == AT} UnaryPrefix)*
+    (ENSURE {getTokenType(1) != IDENTIFIER
+            || getTokenType(2) == AT
+               && !Character.isWhitespace(getToken(2).charAt(-1))}
+    UnaryPrefix)*
     PostfixUnaryExpression
 ;
 
@@ -349,7 +352,13 @@ PostfixUnaryExpression : PrimaryExpression (PostfixUnarySuffix)* ;
 
 EqualityOperator#void : "!=" | "!==" | "==" | "===" ;
 
-ComparisonOperator#void : "<" | "<=" | ">=" | ">" ;
+ComparisonOperator#void :
+   "<"
+   //Necessary because we may have looked ahead
+   // on the assumption that this started a
+   // TypeArguments production (tricky and hypertechnical)
+   UNCACHE_TOKENS
+   | "<=" | ">=" | ">" ;
 
 InOperator#void : "in" | "!in" ;
 
@@ -578,7 +587,7 @@ Declaration :
 
 ClassDeclaration :
    {boolean isEnum = false;}
-   [Modifiers {isEnum = peekNode().firstChildOfType(TokenType.ENUM)!= null;}]
+   [Modifiers {isEnum = peekNode().firstChildOfType(ENUM)!= null;}]
    (
       "class"
       |
@@ -626,8 +635,8 @@ FunctionDeclaration :
    =>||
    FunctionValueParameters
    [":" Type]
-   [TypeConstraints]
-   [FunctionBody]
+   [NLs =>|+1 TypeConstraints]
+   [NLs =>|+1 FunctionBody]
 ;
 
 FunctionBody : Block | "=" Expression ;
@@ -781,7 +790,7 @@ EnumClassBody :
     "{"
     [EnumEntries]
     [
-      NLs ";" =>||
+      ";"
       ClassMemberDeclarations
     ]
     "}"
@@ -855,7 +864,7 @@ INJECT Newline :
       LANGLE,LCURL,LE,LINE_STR_EXPRESSION_START,LPAREN,LSQUARE,
       MOD,MOD_ASSIGNMENT,MULT,MULT_ASSIGNMENT,MULT_LINE_EXPRESSION_START,
       NL,QUEST,RANGE,RANGE2,
-      SEMICOLON,SUB,SUB_ASSIGNMENT,
+      SEMICOLON,SUB,SUB_ASSIGNMENT,SUSPEND,
       THROW,TYPE_ALIAS,
       VAL,VAR,WHEN,WHERE,WHILE
     );
@@ -865,16 +874,18 @@ INJECT Newline :
     private static final EnumSet<TokenType>
      IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES = EnumSet.of(
       AMP,ARROW,AS,AS_SAFE,COLON,COMMA,CONJ,DISJ,DOT,ELSE,ELVIS,
-      LANGLE,QUEST,RANGLE,RCURL,RPAREN,RSQUARE
+      LANGLE,QUEST,PACKAGE,RANGLE,RCURL,RPAREN,RSQUARE
     );
 
     private boolean alreadyChecked;
 
     public void checkUnparsed(PARSER_CLASS parser) {
         if (!alreadyChecked) {
-             setUnparsed(IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES.contains(precedingTokenType())
+             setUnparsed(
+               IGNORE_NEWLINES_FOLLOWING_THESE_TOKEN_TYPES.contains(precedingTokenType())
                 || IGNORE_NEWLINES_PRECEDING_THESE_TOKEN_TYPES.contains(nextNonNewlineType())
-                || parser.canIgnoreNewlines());
+                || parser.canIgnoreNewlines()
+                );
              alreadyChecked = true;
         }
     }
@@ -898,6 +909,7 @@ INJECT Newline :
 
 INJECT PARSER_CLASS :
    import NODE_PACKAGE.Newline;
+   import java.util.IdentityHashMap;
 {
 
     public boolean isInLookahead() {
@@ -924,13 +936,26 @@ INJECT PARSER_CLASS :
         Iterator<String> it = backwardStackIteratorIncludingCurrent();
         while (it.hasNext()) {
             String caller = it.next();
+            // Note that we can do identity comparison
+            // because the strings are interned
             if (caller == "ValueArguments"
                || caller == "ParenthesizedExpression"
                || caller == "ClassParameters"
                || caller == "TypeConstraints"
                || caller == "IfExpression"
                || caller == "WhileStatement"
-               || caller == "DoWhileStatement")
+               || caller == "DoWhileStatement"
+               || caller == "CompanionObject"
+               || caller == "EnumClassBody"
+               || caller == "Modifiers"
+               || caller == "TypeParameters"
+               || caller == "IndexingSuffix"
+               || caller == "CollectionLiteral"
+               || caller == "DestructuringVariableDeclaration"
+               || caller == "Annotation"
+               || caller == "TypeArguments"
+               || caller == "TryExpression"
+               )
             {
                 return true;
             }
@@ -974,7 +999,7 @@ CompanionObject :
     ['data']
     "object"
     [<IDENTIFIER>]
-    [":" DelegationSpecifiers NLs]
+    [":" DelegationSpecifiers ]
     [ClassBody]
 ;
 
@@ -1204,20 +1229,19 @@ TryExpression :
 ;
 
 CatchBlock :
-   NLs
    'catch'
+   =>||
    "("
    (Annotation)*
    ("_"|<IDENTIFIER>)
    ":"
-   =>||
    Type
    [","]
    ")"
    Block
 ;
 
-FinallyBlock : NLs 'finally' =>|+1 Block ;
+FinallyBlock : 'finally' =>|| Block ;
 
 ThrowExpression : "throw" Expression ;
 
