@@ -567,11 +567,9 @@ ControlStructureBody#void :
 
 Block :
    "{"
-    [
-      Statement
-      ([Semis] Statement)*
-    ]
-   [Semis]
+   (
+      Statement [Semis]
+   )*
    "}"
 ;
 
