@@ -113,6 +113,8 @@ TypeArguments :
 TypeProjection :
     "*"
     |
+    "_"
+    |
     TypeProjectionModifiers Type
 ;
 
