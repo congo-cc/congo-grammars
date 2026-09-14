@@ -529,6 +529,8 @@ ForStatement :
    "("
    (Annotation)*
    (
+      "_"
+      |
       MultiVariableDeclaration
       |
       DestructuringVariableDeclaration
