@@ -208,8 +208,8 @@ Parameter : <IDENTIFIER>  ":" =>|| [ContextParameters] Type ;
 ContextParameters :
   'context'
   "("
-      [<IDENTIFIER> ":" =>||] Type
-      ("," [<IDENTIFIER> ":" =>||] Type)*
+      [(<IDENTIFIER>|"_") ":" =>||] Type
+      ("," [(<IDENTIFIER>|"_") ":" =>||] Type)*
   ")"
   NLs
 ;
@@ -691,6 +691,7 @@ ClassParameter :
 
 PropertyDeclaration :
   [Modifiers]
+  [ContextParameters]
   ("val"|"var")
   =>||
   [TypeParameters]
