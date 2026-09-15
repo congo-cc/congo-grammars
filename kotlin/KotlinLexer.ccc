@@ -431,7 +431,16 @@ TOKEN :
    |
    <LINE_STRING_CONTENT : <LINE_STR_TEXT>|<CHAR_ESCAPE>|<UNICODE_ESCAPE>>
    |
-   <LINE_STR_EXPRESSION_START : "${">
+   <LINE_STR_EXPRESSION_START : ("$")+ "{">
+   {
+      int numDollarsToTriggerInterpolation = numDollars == 0 ? 1 : numDollars;
+      int dollars = matchedToken.length() -1;
+      if (dollars != numDollarsToTriggerInterpolation) {
+         //In either case, we just consume a $ character as a plain text token.
+         matchedToken.setEndOffset(matchedToken.getBeginOffset()+1);
+         matchedToken.setType(LINE_STRING_CONTENT);
+      }
+   }
 ;
 
 <IN_MULTILINE_STRING>
