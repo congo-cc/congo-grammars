@@ -302,7 +302,9 @@ GenericCallLikeComparison :
 InfixOperation :
    ElvisExpression
    (
-      ENSURE {getTokenType(0) != NL}
+      //ENSURE {getTokenType(0) != NL}
+      ENSURE {getTokenType(0) != NL
+              && getToken(0).getBeginLine() == getToken(1).getBeginLine()}
       (
         InOperator ElvisExpression
         |
