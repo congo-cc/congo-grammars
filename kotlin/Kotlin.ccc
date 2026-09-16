@@ -556,6 +556,7 @@ WhileStatement :
 DoWhileStatement :
    "do"
    [ControlStructureBody]
+   NLs
    "while"
     "("
     Expression
@@ -984,7 +985,7 @@ INJECT PARSER_CLASS :
     }
 }
 
-ClassMemberDeclarations : (ClassMemberDeclaration [Semis])* ;
+ClassMemberDeclarations : [Semis] (ClassMemberDeclaration [Semis])* ;
 
 ClassMemberDeclaration :
    CompanionObject
