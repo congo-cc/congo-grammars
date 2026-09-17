@@ -157,7 +157,7 @@ Type :
 ;
 
 TypeModifiers :
-   ('suspend' | Annotation)+
+   ('suspend' | Annotation |ContextParameters )+
 ;
 
 ParenthesizedType : "(" Type ")" ;
@@ -302,9 +302,9 @@ GenericCallLikeComparison :
 InfixOperation :
    ElvisExpression
    (
-      //ENSURE {getTokenType(0) != NL}
-      ENSURE {getTokenType(0) != NL
-              && getToken(0).getBeginLine() == getToken(1).getBeginLine()}
+      ENSURE {//getTokenType(0) != NL &&
+              //canIgnoreNewlines() ||
+              getToken(0).getEndLine() == getToken(1).getBeginLine()}
       (
         InOperator ElvisExpression
         |
@@ -631,7 +631,6 @@ ObjectDeclaration :
 ;
 
 FunctionDeclaration :
-   [ContextParameters] // Very bleeding edge
    [Modifiers]
    "fun"
    [TypeParameters]
@@ -653,6 +652,12 @@ Modifiers# :
       Modifier
       |
       Annotation
+      |
+      ENSURE \FunctionDeclaration
+      ContextParameters
+      |
+      ENSURE \PropertyDeclaration
+      ContextParameters
    )+
 ;
 
@@ -694,7 +699,6 @@ ClassParameter :
 
 PropertyDeclaration :
   [Modifiers]
-  [ContextParameters]
   ("val"|"var")
   =>||
   [TypeParameters]
