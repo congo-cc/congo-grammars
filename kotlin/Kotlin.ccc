@@ -662,11 +662,17 @@ Modifiers# :
 ;
 
 Modifier#void :
-   'sealed' | 'annotation' | 'data' | 'inner' | 'value' |
+   'sealed' | 'annotation' | 'inner' | 'value' |
    'override' | 'lateinit' | 'public' | 'private' | 'internal' | 'protected' |
    'tailrec' | 'operator' | 'infix' | 'inline' | 'external' | 'suspend' |
    'const' | 'abstract' | 'final' | 'open' | 'vararg' | 'noinline' | 'crossinline' |
    'expect' | 'actual' | 'enum'
+   |
+   // TODO: Need more generalized treatment of which
+   // modifiers are permissible where
+   ENSURE ~\ClassParameter
+   ENSURE ~\.\ClassParameter
+   'data'
 ;
 
 TypeAlias :
