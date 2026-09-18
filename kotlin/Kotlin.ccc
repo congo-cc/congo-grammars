@@ -327,6 +327,9 @@ InfixFunctionCall :
          |
          getToken(0).getEndLine() == getToken(1).getBeginLine()
       }
+      // This seems necessary because somehow a newline
+      // can be cached when it should have been ignored.
+      UNCACHE_TOKENS
       <IDENTIFIER>
       NLs
       RangeExpression
