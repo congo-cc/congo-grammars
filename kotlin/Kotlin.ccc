@@ -140,7 +140,7 @@ Annotation :
 AnnotationUseSiteTarget :
     "@"
     ENSURE {!Character.isWhitespace(token_source.charAt(getToken(0).getEndOffset()))}
-    ('field' | 'property' | 'get' | 'set' | 'receiver' | 'param' | 'setparam' | 'delegate')
+    ('field' | 'property' | 'get' | 'set' | 'receiver' | 'param' | 'setparam' | 'delegate'|'all')
     =>||
     ":"
 ;
@@ -157,7 +157,8 @@ Type :
 ;
 
 TypeModifiers :
-   ('suspend' | Annotation |ContextParameters )+
+   ('suspend' | Annotation | ContextParameters )+
+   =>|| // Maybe a bit kludgy. REVISIT
 ;
 
 ParenthesizedType : "(" Type ")" ;
@@ -786,6 +787,7 @@ TypeParameters :
    TypeParameter
    ("," =>|+1 TypeParameter)* [","]
    ">"
+   NLs
 ;
 
 TypeParameter :
@@ -879,7 +881,7 @@ INJECT Newline :
       FINALLY,GE,IF,INIT,
       LANGLE,LCURL,LE,LINE_STR_EXPRESSION_START,LPAREN,LSQUARE,
       MOD,MOD_ASSIGNMENT,MULT,MULT_ASSIGNMENT,MULT_LINE_EXPRESSION_START,
-      NL,QUEST,RANGE,RANGE2,
+      NL,QUEST,RANGE,RANGE2,RANGLE,
       SEMICOLON,SUB,SUB_ASSIGNMENT,SUSPEND,
       THROW,TYPE_ALIAS,
       VAL,VAR,WHEN,WHERE,WHILE
