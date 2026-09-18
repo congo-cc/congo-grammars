@@ -327,8 +327,7 @@ InfixFunctionCall :
          |
          getToken(0).getEndLine() == getToken(1).getBeginLine()
       }
-      // This seems necessary because somehow a newline
-      // can be cached when it should have been ignored.
+      // This seems necessary for hypertechnical reasons
       UNCACHE_TOKENS
       <IDENTIFIER>
       NLs
@@ -360,13 +359,7 @@ PostfixUnaryExpression : PrimaryExpression (PostfixUnarySuffix)* ;
 
 EqualityOperator#void : "!=" | "!==" | "==" | "===" ;
 
-ComparisonOperator#void :
-   "<"
-   //Necessary because we may have looked ahead
-   // on the assumption that this started a
-   // TypeArguments production (tricky and hypertechnical)
-   UNCACHE_TOKENS
-   | "<=" | ">=" | ">" ;
+ComparisonOperator#void : "<" | "<=" | ">=" | ">" ;
 
 InOperator#void : "in" | "!in" ;
 
@@ -434,7 +427,6 @@ CallSuffix#void :
         ]
         |
         ENSURE {!isInExplicitDelegateAndNotParenthesized()}
-        NLs =>|+1
         AnnotatedLambda
     )
 ;
@@ -615,7 +607,7 @@ ClassDeclaration :
       PrimaryConstructor
    ]
    [":" DelegationSpecifiers NLs]
-   [NLs =>|+1 TypeConstraints]
+   [TypeConstraints]
    [
       SCAN ("{") =>
       (
@@ -1127,7 +1119,7 @@ CallableReference :
 ObjectLiteral# :
    ['data']
    "object" =>||
-   [":" DelegationSpecifiers NLs]
+   [":" DelegationSpecifiers]
    [ClassBody]
 ;
 
