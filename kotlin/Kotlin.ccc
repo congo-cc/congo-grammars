@@ -397,9 +397,9 @@ PostfixUnarySuffix#void :
     |
     (NavigationSuffix) #NavigationExpression(+1)
     |
-    (CallSuffix) #CallExpression(+1)
-    |
     TypeArguments #ExpressionWithTypeArguments(2)
+    |
+    (CallSuffix) #CallExpression(+1)
     |
     (IndexingSuffix) #IndexExpression(+1)
   )
@@ -787,7 +787,6 @@ TypeParameters :
    TypeParameter
    ("," =>|+1 TypeParameter)* [","]
    ">"
-   NLs
 ;
 
 TypeParameter :
