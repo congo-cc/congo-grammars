@@ -328,7 +328,7 @@ InfixFunctionCall :
          getToken(0).getEndLine() == getToken(1).getBeginLine()
       }
       // This seems necessary for hypertechnical reasons
-      UNCACHE_TOKENS
+      [SCAN (<NL>) => UNCACHE_TOKENS]
       <IDENTIFIER>
       NLs
       RangeExpression
@@ -470,6 +470,8 @@ LambdaParameter :
 VariableDeclaration : (Annotation)* <IDENTIFIER> =>|| [":" Type] ;
 
 MultiVariableDeclaration :
+   // {boolean startsWithSquareBracket = false;}
+   // ("(" | "[" {startsWithSquareBracket = true;})
     "("
     (
       "_" [":" =>|| Type]
@@ -487,6 +489,15 @@ MultiVariableDeclaration :
     )*
     [","]
     ")"
+    /*
+    (
+      ASSERT {!startsWithSquareBracket : "Expecting ] here" }
+      ")"
+      |
+      ASSERT {startsWithSquareBracket : "Expecting ) here" }
+      "]"
+    )*/
+
 ;
 
 DestructuringVariableDeclaration :
@@ -641,6 +652,11 @@ FunctionDeclaration :
 
 FunctionBody : Block | "=" Expression ;
 
+INJECT PARSER_CLASS :
+{
+   EnumSet<TokenType> permissibleModifiers;
+}
+
 Modifiers# :
    ENSURE ~(Modifier ":")
    (
@@ -655,9 +671,13 @@ Modifiers# :
       ENSURE \PropertyDeclaration
       ContextParameters
    )+
+   {
+      permissibleModifiers = null;
+   }#
 ;
 
 Modifier#void :
+  (
    'sealed' | 'annotation' | 'inner' | 'value' |
    'override' | 'lateinit' | 'public' | 'private' | 'internal' | 'protected' |
    'tailrec' | 'operator' | 'infix' | 'inline' | 'external' | 'suspend' |
@@ -669,9 +689,45 @@ Modifier#void :
    ENSURE ~\ClassParameter
    ENSURE ~\.\ClassParameter
    'data'
+  )
+  ASSERT {
+    permissibleModifiers == null || hasMatch(permissibleModifiers,lastConsumedToken),
+    lastConsumedToken : "Modifier " + lastConsumedToken + " not permitted here."
+  }
+  {
+     if (permissibleModifiers != null) {
+        TokenType tt = getTokenType(0);
+        switch (tt) {
+           case OPEN :
+              permissibleModifiers.remove(OPEN);
+              permissibleModifiers.remove(FINAL);
+              break;
+           case ABSTRACT :
+              permissibleModifiers.remove(ABSTRACT);
+              permissibleModifiers.remove(FINAL);
+              break;
+           case FINAL :
+              permissibleModifiers.remove(ABSTRACT);
+              permissibleModifiers.remove(FINAL);
+              permissibleModifiers.remove(OPEN);
+              break;
+           case INTERNAL:
+           case PRIVATE:
+           case PUBLIC:
+           case PROTECTED:
+              permissibleModifiers.remove(INTERNAL);
+              permissibleModifiers.remove(PRIVATE);
+              permissibleModifiers.remove(PROTECTED);
+              permissibleModifiers.remove(PUBLIC);
+              break;
+           default : permissibleModifiers.remove(tt);
+        }
+     }
+  }
 ;
 
 TypeAlias :
+   {permissibleModifiers = EnumSet.of(PUBLIC,PROTECTED,PRIVATE,INTERNAL,EXPECT,ACTUAL);}
    [Modifiers] "typealias" =>||
    <IDENTIFIER>
    [TypeParameters]
@@ -679,7 +735,16 @@ TypeAlias :
    Type
 ;
 
-PrimaryConstructor : [[Modifiers] 'constructor'] ClassParameters ;
+PrimaryConstructor :
+  [
+   [
+      //{permissibleModifiers = EnumSet.of(PUBLIC,PROTECTED,PRIVATE,INTERNAL);}
+      Modifiers
+   ]
+   'constructor'
+  ]
+  ClassParameters
+;
 
 ClassParameters :
     "("
@@ -963,7 +1028,7 @@ INJECT PARSER_CLASS :
                || caller == "TypeParameters"
                || caller == "IndexingSuffix"
                || caller == "CollectionLiteral"
-               || caller == "DestructuringVariableDeclaration"
+//               || caller == "DestructuringVariableDeclaration"
                || caller == "Annotation"
                || caller == "TypeArguments"
                || caller == "TryExpression"
@@ -1057,7 +1122,10 @@ ParameterWithOptionalType : <IDENTIFIER> [":" Type] ;
 EnumEntries : EnumEntry =>|| ("," =>|+1 EnumEntry)* [","] ;
 
 EnumEntry :
-   [Modifiers]
+   [
+      {permissibleModifiers = EnumSet.noneOf(TokenType.class);}
+      Modifiers
+   ]
    <IDENTIFIER>
    [ValueArguments]
    [ClassBody]
