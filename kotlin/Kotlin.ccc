@@ -738,7 +738,7 @@ TypeAlias :
 PrimaryConstructor :
   [
    [
-      //{permissibleModifiers = EnumSet.of(PUBLIC,PROTECTED,PRIVATE,INTERNAL);}
+      {permissibleModifiers = EnumSet.of(PUBLIC,PROTECTED,PRIVATE,INTERNAL,EXPECT,ACTUAL);}
       Modifiers
    ]
    'constructor'
@@ -756,7 +756,11 @@ ClassParameters :
 ;
 
 ClassParameter :
-   [Modifiers]
+   [
+      {permissibleModifiers = EnumSet.of(PUBLIC,PRIVATE,PROTECTED,INTERNAL,
+                                         OVERRIDE,OPEN,FINAL,VARARG,ACTUAL,EXPECT);}
+      Modifiers
+   ]
    ["val"|"var"]
    <IDENTIFIER>
    ":"
@@ -765,7 +769,13 @@ ClassParameter :
 ;
 
 PropertyDeclaration :
-  [Modifiers]
+  [
+     {permissibleModifiers = EnumSet.of(PUBLIC,PRIVATE,PROTECTED,INTERNAL,
+                                       OVERRIDE,OPEN,FINAL,ABSTRACT,
+                                       EXPECT,ACTUAL,CONST,LATEINIT,
+                                       EXTERNAL,INLINE);}
+     Modifiers
+  ]
   ("val"|"var")
   =>||
   [TypeParameters]
