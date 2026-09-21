@@ -599,7 +599,14 @@ Declaration :
 
 ClassDeclaration :
    {boolean isEnum = false;}
-   [Modifiers {isEnum = peekNode().firstChildOfType(ENUM)!= null;}]
+   [
+      {permissibleModifiers = EnumSet.of(PRIVATE,PUBLIC,PROTECTED,INTERNAL,
+                                         OPEN,FINAL,ABSTRACT,SEALED,INLINE,
+                                         EXPECT,ACTUAL,VALUE,INNER,EXTERNAL,
+                                         DATA,ENUM,ANNOTATION);}
+      Modifiers
+      {isEnum = peekNode().firstChildOfType(ENUM)!= null;}
+   ]
    (
       "class"
       |
@@ -630,7 +637,11 @@ ClassDeclaration :
 ;
 
 ObjectDeclaration :
-    [Modifiers]
+    [
+      {permissibleModifiers = EnumSet.of(PRIVATE,PUBLIC,PROTECTED,INTERNAL,
+                                        DATA,EXPECT,ACTUAL);}
+      Modifiers
+    ]
     "object"
     <IDENTIFIER> =>||
     [":" DelegationSpecifiers]
@@ -638,7 +649,13 @@ ObjectDeclaration :
 ;
 
 FunctionDeclaration :
-   [Modifiers]
+   [
+      {permissibleModifiers = EnumSet.of(PRIVATE,PUBLIC,PROTECTED,INTERNAL,
+                                        OVERRIDE,OPEN,FINAL,ABSTRACT,
+                                        TAILREC,OPERATOR,INFIX,INLINE,EXTERNAL,SUSPEND,
+                                        EXPECT,ACTUAL);}
+      Modifiers
+   ]
    "fun"
    [TypeParameters]
    [ReceiverType "." =>||]
@@ -686,7 +703,6 @@ Modifier#void :
    |
    // TODO: Need more generalized treatment of which
    // modifiers are permissible where
-   ENSURE ~\ClassParameter
    ENSURE ~\.\ClassParameter
    'data'
   )
@@ -697,6 +713,8 @@ Modifier#void :
   {
      if (permissibleModifiers != null) {
         TokenType tt = getTokenType(0);
+        // In terms of which sets of modifiers are incompatible,
+        // the following may be a tiny bit incomplete.
         switch (tt) {
            case OPEN :
               permissibleModifiers.remove(OPEN);
@@ -727,8 +745,11 @@ Modifier#void :
 ;
 
 TypeAlias :
-   {permissibleModifiers = EnumSet.of(PUBLIC,PROTECTED,PRIVATE,INTERNAL,EXPECT,ACTUAL);}
-   [Modifiers] "typealias" =>||
+   [
+      {permissibleModifiers = EnumSet.of(PUBLIC,PROTECTED,PRIVATE,INTERNAL,EXPECT,ACTUAL);}
+      Modifiers
+   ]
+   "typealias" =>||
    <IDENTIFIER>
    [TypeParameters]
    "="
@@ -805,7 +826,10 @@ PropertyDeclaration :
 ;
 
 Getter :
-   [Modifiers]
+   [
+      {permissibleModifiers = EnumSet.of(EXTERNAL,INLINE);}
+      Modifiers
+   ]
    'get'
    =>||
    [
@@ -837,7 +861,10 @@ SetterLA#scan :
 
 Setter :
    SCAN SetterLA =>
-   [Modifiers]
+   [
+      {permissibleModifiers = EnumSet.of(PRIVATE,PROTECTED,PUBLIC,INTERNAL,EXTERNAL,INLINE);}
+      Modifiers
+   ]
    'set'
    [
       "("
@@ -1038,7 +1065,7 @@ INJECT PARSER_CLASS :
                || caller == "TypeParameters"
                || caller == "IndexingSuffix"
                || caller == "CollectionLiteral"
-//               || caller == "DestructuringVariableDeclaration"
+               || caller == "DestructuringVariableDeclaration"
                || caller == "Annotation"
                || caller == "TypeArguments"
                || caller == "TryExpression"
@@ -1081,7 +1108,10 @@ ClassMemberDeclaration :
 AnonymousInitializer : 'init' Block ;
 
 CompanionObject :
-    [Modifiers]
+    [
+      {permissibleModifiers = EnumSet.of(PUBLIC,PROTECTED,PRIVATE,INTERNAL,EXPECT,ACTUAL);}
+      Modifiers
+    ]
     'companion' =>||
     ['data']
     "object"
@@ -1091,7 +1121,10 @@ CompanionObject :
 ;
 
 SecondaryConstructor :
-   [Modifiers]
+   [
+      {permissibleModifiers = EnumSet.of(PUBLIC,PROTECTED,PRIVATE,INTERNAL,EXPECT,ACTUAL);}
+      Modifiers
+   ]
    'constructor' =>||
    FunctionValueParameters
    [":" ConstructorDelegationCall]
