@@ -229,7 +229,7 @@ CONTEXTUAL :
    |
    <ALL : "all">
    |
-   <ANNOTATION : "annotation">
+   <ANNOTATION : "annotation"> #_ANNOTATION
    |
    <BY : "by">
    |
@@ -273,7 +273,7 @@ CONTEXTUAL :
    |
    <OPEN : "open">
    |
-   <OPERATOR : "operator">
+   <OPERATOR : "operator"> #_OPERATOR
    |
    <OUT : "out">
    |
